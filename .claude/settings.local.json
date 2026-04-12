@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start:*)",
+      "Bash(npx expo:*)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //PID 40992 //F)",
+      "Bash(taskkill //PID 69996 //F)",
+      "Bash(mkdir -p \"app/\\(tabs\\)\")",
+      "Bash(rm -f App.tsx index.ts)",
+      "Bash(npm install:*)"
+    ]
+  }
+}
