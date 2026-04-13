@@ -41,6 +41,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="flash" color={color} size={size} />,
         }}
       />
+      <Tabs.Screen name="calendar" options={{ href: null }} />
       <Tabs.Screen
         name="messages"
         options={{

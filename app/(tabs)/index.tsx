@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -133,14 +134,16 @@ export default function Home() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Good evening 👋</Text>
-            <Text style={styles.name}>Alex Hacking</Text>
-          </View>
+          <Image
+            source={require('../../assets/images/speedi-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <View style={styles.creditsChip}>
             <Text style={styles.creditsText}>179 cr</Text>
           </View>
         </View>
+        <Text style={styles.greeting}>Good morning, Alex 👋</Text>
 
         <View style={styles.trafficLight}>
           {renderLight('red', '#EF4444')}
@@ -197,25 +200,32 @@ export default function Home() {
           <Text style={styles.approvedSubtitle}>Active · Verified credentials</Text>
         </View>
 
-        <View style={styles.yoriCard}>
-          <View style={styles.yoriHeader}>
-            <Animated.View style={[styles.yoriDot, { opacity: pulse }]} />
-            <Text style={styles.yoriTitle}>Yori — Live Demand</Text>
-            <View style={styles.yoriPill}>
-              <Text style={styles.yoriPillText}>5 waiting</Text>
-            </View>
-          </View>
-          <Text style={styles.yoriBody}>
-            5 customers need a plumber in Preston right now. Go red to queue them or green to
-            match instantly.
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.yoriNotif}
+          onPress={() => router.push('/(tabs)/waiting')}
+        >
+          <Animated.View style={[styles.yoriDot, { opacity: pulse }]} />
+          <Text style={styles.yoriNotifText}>
+            <Text style={styles.yoriNotifStrong}>Yori</Text> — 5 waiting in Preston
           </Text>
-          <TouchableOpacity
-            style={styles.yoriBtn}
-            onPress={() => router.push('/(tabs)/waiting')}
-          >
-            <Text style={styles.yoriBtnText}>⚡ View Requests</Text>
-          </TouchableOpacity>
-        </View>
+          <Text style={styles.yoriChevron}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.calendarCard}
+          onPress={() => router.push('/(tabs)/calendar')}
+        >
+          <View style={styles.calendarIconBox}>
+            <Text style={styles.calendarIcon}>📅</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.calendarTitle}>Today's Schedule</Text>
+            <Text style={styles.calendarSubtitle}>Next: 12:00 PM · Boiler Service</Text>
+          </View>
+          <Text style={styles.calendarChevron}>›</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -234,17 +244,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  logo: {
+    height: 32,
+    width: 120,
   },
   greeting: {
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  name: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 2,
+    color: '#9CA3AF',
+    fontSize: 13,
+    marginBottom: 24,
   },
   creditsChip: {
     backgroundColor: '#1C1C1C',
@@ -372,17 +382,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
-  yoriCard: {
+  yoriNotif: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(230,74,25,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(230,74,25,0.2)',
-    borderRadius: 18,
-    padding: 14,
-  },
-  yoriHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+    marginBottom: 10,
   },
   yoriDot: {
     width: 8,
@@ -390,39 +400,52 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#E64A19',
   },
-  yoriTitle: {
+  yoriNotifText: {
     flex: 1,
-    color: '#E64A19',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  yoriPill: {
-    backgroundColor: '#E64A1922',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  yoriPillText: {
-    color: '#E64A19',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  yoriBody: {
     color: '#FFFFFF',
     fontSize: 13,
-    lineHeight: 19,
-    marginTop: 10,
   },
-  yoriBtn: {
-    backgroundColor: '#E64A19',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  yoriBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  yoriNotifStrong: {
+    color: '#E64A19',
     fontWeight: '700',
+  },
+  yoriChevron: {
+    color: '#E64A19',
+    fontSize: 20,
+    fontWeight: '300',
+  },
+  calendarCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+  },
+  calendarIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(59,130,246,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarIcon: {
+    fontSize: 20,
+  },
+  calendarTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  calendarSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  calendarChevron: {
+    color: '#6B7280',
+    fontSize: 22,
+    fontWeight: '300',
   },
 });
