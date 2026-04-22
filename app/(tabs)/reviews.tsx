@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -6,66 +8,115 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { fetchWithAuth } from '../../lib/auth';
+
+const API = 'https://www.speeditrades.com';
 
 type Review = {
   id: string;
-  name: string;
-  stars: string;
-  date: string;
-  text: string;
-  tag: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  reviewerName: string | null;
+  jobType: string | null;
 };
 
-const REVIEWS: Review[] = [
-  {
-    id: 'r1',
-    name: 'Sarah K.',
-    stars: '★★★★★',
-    date: '2 days ago',
-    text: 'Absolutely brilliant — arrived within 20 minutes and sorted the burst pipe in no time.',
-    tag: 'Emergency Plumbing',
-  },
-  {
-    id: 'r2',
-    name: 'Mike R.',
-    stars: '★★★★★',
-    date: '1 week ago',
-    text: 'Fantastic job on the bathroom installation. Really tidy work, on time and great value.',
-    tag: 'Bathroom Install',
-  },
-  {
-    id: 'r3',
-    name: 'Emma T.',
-    stars: '★★★★☆',
-    date: '2 weeks ago',
-    text: 'Great service, very professional. Slight delay but kept me informed throughout.',
-    tag: 'Boiler Service',
-  },
-];
+type ReviewData = {
+  averageRating: number;
+  totalCount: number;
+  reviews: Review[];
+};
+
+function renderStars(rating: number): string {
+  const full = Math.floor(rating);
+  const half = rating % 1 >= 0.5 ? 1 : 0;
+  const empty = 5 - full - half;
+  return '★'.repeat(full) + (half ? '★' : '') + '☆'.repeat(Math.max(0, empty));
+}
+
+function daysAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diffMs / 86400000);
+  if (days < 1) {
+    const hours = Math.floor(diffMs / 3600000);
+    if (hours < 1) return 'just now';
+    return `${hours} hr ago`;
+  }
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? '1 month ago' : `${months} months ago`;
+}
 
 export default function Reviews() {
+  const [reviewData, setReviewData] = useState<ReviewData>({
+    averageRating: 0,
+    totalCount: 0,
+    reviews: [],
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/reviews`);
+        const data = await res.json();
+        setReviewData(data);
+      } catch (e) {
+        console.log('Failed to load reviews:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.centered]}>
+        <ActivityIndicator color="#00C67A" size="large" />
+      </SafeAreaView>
+    );
+  }
+
+  const hasReviews = reviewData.totalCount > 0;
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.hero}>
-          <Text style={styles.heroNumber}>4.9</Text>
-          <Text style={styles.heroStars}>★★★★★</Text>
-          <Text style={styles.heroSubtitle}>Based on 24 reviews</Text>
+          <Text style={styles.heroNumber}>{reviewData.averageRating.toFixed(1)}</Text>
+          <Text style={styles.heroStars}>{renderStars(reviewData.averageRating)}</Text>
+          <Text style={styles.heroSubtitle}>
+            Based on {reviewData.totalCount}{' '}
+            {reviewData.totalCount === 1 ? 'review' : 'reviews'}
+          </Text>
         </View>
 
-        {REVIEWS.map((rev) => (
-          <View key={rev.id} style={styles.reviewCard}>
-            <View style={styles.reviewTop}>
-              <Text style={styles.reviewName}>{rev.name}</Text>
-              <Text style={styles.reviewStars}>{rev.stars}</Text>
-            </View>
-            <Text style={styles.reviewDate}>{rev.date}</Text>
-            <Text style={styles.reviewText}>{rev.text}</Text>
-            <View style={styles.tagPill}>
-              <Text style={styles.tagText}>{rev.tag}</Text>
-            </View>
+        {!hasReviews ? (
+          <View style={styles.emptyBlock}>
+            <Text style={styles.emptyText}>No reviews yet</Text>
+            <Text style={styles.emptySub}>Complete jobs to start receiving reviews</Text>
           </View>
-        ))}
+        ) : (
+          reviewData.reviews.map((rev) => (
+            <View key={rev.id} style={styles.reviewCard}>
+              <View style={styles.reviewTop}>
+                <Text style={styles.reviewName}>{rev.reviewerName || 'Anonymous'}</Text>
+                <Text style={styles.reviewStars}>{renderStars(rev.rating)}</Text>
+              </View>
+              <Text style={styles.reviewDate}>{daysAgo(rev.createdAt)}</Text>
+              {rev.comment ? <Text style={styles.reviewText}>{rev.comment}</Text> : null}
+              {rev.jobType ? (
+                <View style={styles.tagPill}>
+                  <Text style={styles.tagText}>{rev.jobType}</Text>
+                </View>
+              ) : null}
+            </View>
+          ))
+        )}
 
         <View style={styles.qrCard}>
           <View style={styles.qrBox}>
@@ -98,6 +149,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A0A0A',
   },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     padding: 20,
     paddingBottom: 32,
@@ -125,6 +180,22 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 13,
     marginTop: 8,
+  },
+  emptyBlock: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    marginBottom: 12,
+  },
+  emptyText: {
+    color: '#9CA3AF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  emptySub: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginTop: 6,
+    textAlign: 'center',
   },
   reviewCard: {
     backgroundColor: '#111111',

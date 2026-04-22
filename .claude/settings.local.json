@@ -8,7 +8,16 @@
       "Bash(taskkill //PID 69996 //F)",
       "Bash(mkdir -p \"app/\\(tabs\\)\")",
       "Bash(rm -f App.tsx index.ts)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(vercel --prod --yes)",
+      "Bash(curl:*)",
+      "Bash(awk '/^model Conversation / {flag=1} /^model ConversationMessage/ {flag=1} /^model QuoteBroadcast/ {flag=1} /^model QuoteResponse/ {flag=1} /^}$/ {if\\(flag\\) print; flag=0} flag' prisma/schema.prisma)",
+      "Bash(awk '/^model User /{flag=1} flag && /^}$/{flag=0; print; exit} flag' prisma/schema.prisma)",
+      "Bash(awk '/^model Review /{flag=1} flag && /^}$/{flag=0; print; exit} flag' prisma/schema.prisma)",
+      "Bash(awk '/^model Message /{flag=1} flag && /^}$/{flag=0; print; exit} flag' prisma/schema.prisma)",
+      "Bash(awk '/^model CreditTransaction /{flag=1} flag && /^}$/{flag=0; print; exit} flag' prisma/schema.prisma)",
+      "Bash(awk '/^model GoogleCalendarToken /{flag=1} flag && /^}$/{flag=0; print; exit} flag' prisma/schema.prisma)",
+      "Bash(npx prisma:*)"
     ]
   }
 }

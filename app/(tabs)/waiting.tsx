@@ -1,4 +1,10 @@
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -6,168 +12,448 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { fetchWithAuth } from '../../lib/auth';
 
-type JobStatus = 'in_progress' | 'completed';
-
-type Job = {
-  id: string;
-  name: string;
-  trade: string;
-  address: string;
-  status: JobStatus;
-};
-
-type RequestHeat = 'hot' | 'warm' | 'cold';
+const API = 'https://www.speeditrades.com';
 
 type Request = {
   id: string;
-  trade: string;
-  icon: string;
-  timeAgo: string;
-  description: string;
-  distance: string;
-  postcode: string;
-  heat: RequestHeat;
+  jobType: string;
+  category: string | null;
+  description: string | null;
+  customerName: string | null;
+  distanceMiles: number | null;
+  minutesAgo: number;
+  minutesLeft: number;
+  createdAt: string;
 };
 
-const JOBS: Job[] = [
-  {
-    id: 'j1',
-    name: 'Sarah K.',
-    trade: 'Emergency Plumbing',
-    address: 'Victoria Terrace PR1',
-    status: 'in_progress',
-  },
-  {
-    id: 'j2',
-    name: 'Mike R.',
-    trade: 'Bathroom Install',
-    address: 'Fishergate PR1',
-    status: 'completed',
-  },
-];
+type Job = {
+  id: string;
+  jobType: string;
+  description: string | null;
+  status: 'accepted' | 'completed';
+  customerName: string | null;
+  customerPhone: string | null;
+  customerEmail: string | null;
+  acceptedAt: string | null;
+};
 
-const REQUESTS: Request[] = [
-  {
-    id: 'r1',
-    trade: 'Emergency Plumbing',
-    icon: '🚨',
-    timeAgo: '12s ago',
-    description: 'Burst pipe under kitchen sink',
-    distance: '0.8mi',
-    postcode: 'PR1 3AH',
-    heat: 'hot',
-  },
-  {
-    id: 'r2',
-    trade: 'Boiler Fault',
-    icon: '🔧',
-    timeAgo: '2m ago',
-    description: 'No hot water pilot light out',
-    distance: '1.4mi',
-    postcode: 'PR2 1BX',
-    heat: 'warm',
-  },
-  {
-    id: 'r3',
-    trade: 'Bathroom Install',
-    icon: '🚿',
-    timeAgo: '8m ago',
-    description: 'Full suite replacement flexible timing',
-    distance: '3.1mi',
-    postcode: 'PR5 4DX',
-    heat: 'cold',
-  },
-];
+type MyProfile = {
+  id: string;
+  name: string | null;
+  username: string | null;
+  trade: string | null;
+};
 
-const HEAT_COLOR: Record<RequestHeat, string> = {
+function timeAgo(minutes: number): string {
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function heat(minutes: number): 'hot' | 'warm' | 'cold' {
+  if (minutes < 2) return 'hot';
+  if (minutes < 10) return 'warm';
+  return 'cold';
+}
+
+function startOfToday(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function formatCompletedTime(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+const HEAT_COLOR = {
   hot: '#00C67A',
   warm: '#F59E0B',
   cold: '#EF4444',
 };
 
-const STATUS_LABEL: Record<JobStatus, string> = {
-  in_progress: '● In Progress',
-  completed: '● Completed',
-};
-
-const STATUS_COLOR: Record<JobStatus, string> = {
-  in_progress: '#00C67A',
-  completed: '#F59E0B',
-};
-
 export default function Waiting() {
+  const router = useRouter();
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [accepting, setAccepting] = useState<string | null>(null);
+  const [completing, setCompleting] = useState<string | null>(null);
+  const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  const loadRequests = async () => {
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/waiting-requests`);
+      const data = await res.json();
+      if (Array.isArray(data)) setRequests(data);
+    } catch (e) {
+      console.log('Failed to load requests:', e);
+    }
+  };
+
+  const loadJobs = async () => {
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/my-jobs`);
+      const data = await res.json();
+      if (Array.isArray(data)) setJobs(data);
+    } catch (e) {
+      console.log('Failed to load jobs:', e);
+    }
+  };
+
+  useEffect(() => {
+    const loadMe = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/me`);
+        const data = await res.json();
+        if (data?.id) setMyProfile(data);
+      } catch (e) {
+        console.log('Failed to load me:', e);
+      }
+    };
+
+    loadMe();
+    loadRequests();
+    loadJobs();
+    const interval = setInterval(() => {
+      loadRequests();
+      loadJobs();
+    }, 20000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleAccept = async (requestId: string) => {
+    setAccepting(requestId);
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/accept-request`, {
+        method: 'POST',
+        body: JSON.stringify({ requestId }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setRequests((prev) => prev.filter((r) => r.id !== requestId));
+        const customerName = data.customerName ?? 'there';
+        const customerPhone: string | null = data.customerPhone ?? null;
+        Alert.alert(
+          '✅ Job Accepted — 1 credit spent',
+          `Customer: ${data.customerName ?? 'Unknown'}\nPhone: ${
+            customerPhone || 'Not provided'
+          }\n\nYou have ${data.remainingCredits} credits remaining.`,
+          [
+            {
+              text: '📞 Call',
+              onPress: () => {
+                if (customerPhone) Linking.openURL(`tel:${customerPhone}`);
+              },
+            },
+            {
+              text: '💬 SMS',
+              onPress: () => {
+                if (!customerPhone) return;
+                const message =
+                  `Hi ${customerName}, it's ${myProfile?.name || 'your tradesperson'} ` +
+                  `from ${myProfile?.trade || 'Speedi'}. ` +
+                  `I've seen your Speedi request and I'm able to help. ` +
+                  `I'm free now and ready to come to you. ` +
+                  `What's the best time?`;
+                Linking.openURL(
+                  `sms:${customerPhone}?body=${encodeURIComponent(message)}`,
+                );
+              },
+            },
+            { text: 'Later', style: 'cancel' },
+          ],
+        );
+        loadJobs();
+      } else if (data.code === 'NO_CREDITS') {
+        Alert.alert(
+          'Not enough credits',
+          'You need at least 1 credit to accept a job. Top up in the Rewards tab.',
+          [{ text: 'OK' }],
+        );
+      } else {
+        Alert.alert('Error', 'Could not accept job. Try again.');
+      }
+    } catch {
+      Alert.alert('Error', 'Connection failed. Try again.');
+    } finally {
+      setAccepting(null);
+    }
+  };
+
+  const handleComplete = async (job: Job) => {
+    setCompleting(job.id);
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/complete-job`, {
+        method: 'POST',
+        body: JSON.stringify({ requestId: job.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        loadJobs();
+
+        const customerName = job.customerName ?? 'there';
+        const customerPhone = job.customerPhone;
+        const reviewSlug = myProfile?.username || myProfile?.id;
+
+        Alert.alert(
+          '✅ Job Complete!',
+          `Want to ask ${customerName} for a review?`,
+          [
+            {
+              text: '⭐ Send review request',
+              onPress: () => {
+                if (!customerPhone || !reviewSlug) return;
+                const reviewUrl = `https://www.speeditrades.com/review/${reviewSlug}`;
+                const message =
+                  `Hi ${customerName}, thanks for using Speedi! ` +
+                  `I hope you were happy with the work. ` +
+                  `If you have a moment I'd really appreciate ` +
+                  `a quick review — it only takes 30 seconds: ` +
+                  `${reviewUrl}`;
+                Linking.openURL(
+                  `sms:${customerPhone}?body=${encodeURIComponent(message)}`,
+                );
+              },
+            },
+            { text: 'Maybe later', style: 'cancel' },
+          ],
+        );
+      }
+    } catch (e) {
+      console.log('Failed to complete job:', e);
+    } finally {
+      setCompleting(null);
+    }
+  };
+
+  const callPhone = (phone: string | null) => {
+    if (phone) Linking.openURL(`tel:${phone}`);
+  };
+  const smsPhone = (phone: string | null) => {
+    if (phone) Linking.openURL(`sms:${phone}`);
+  };
+  const emailUser = (email: string | null) => {
+    if (email) Linking.openURL(`mailto:${email}`);
+  };
+
+  const todayStart = startOfToday();
+  const activeJobs = jobs.filter((j) => j.status === 'accepted');
+  const completedToday = jobs.filter(
+    (j) =>
+      j.status === 'completed' &&
+      j.acceptedAt !== null &&
+      new Date(j.acceptedAt).getTime() >= todayStart,
+  );
+  const todayRequests = requests.filter(
+    (r) => new Date(r.createdAt).getTime() >= todayStart,
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.sectionTitle}>Your Jobs</Text>
-        {JOBS.map((job) => (
-          <View key={job.id} style={styles.jobCard}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.jobName}>{job.name}</Text>
-              <View
-                style={[
-                  styles.statusPill,
-                  { backgroundColor: STATUS_COLOR[job.status] + '22' },
-                ]}
-              >
-                <Text style={[styles.statusText, { color: STATUS_COLOR[job.status] }]}>
-                  {STATUS_LABEL[job.status]}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.jobMeta}>{job.trade}</Text>
-            <Text style={styles.jobMeta}>{job.address}</Text>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        stickyHeaderIndices={[0, 2]}
+      >
+        <View style={styles.stickyHeader}>
+          <Text style={styles.sectionTitle}>Active Jobs</Text>
+        </View>
 
-            <View style={styles.contactRow}>
-              <TouchableOpacity style={[styles.contactBtn, { backgroundColor: '#1E3A8A33' }]}>
-                <Text style={[styles.contactText, { color: '#60A5FA' }]}>📞 Call</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.contactBtn, { backgroundColor: '#00C67A22' }]}>
-                <Text style={[styles.contactText, { color: '#00C67A' }]}>💬 SMS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.contactBtn, { backgroundColor: '#1C1C1C' }]}>
-                <Text style={[styles.contactText, { color: '#9CA3AF' }]}>✉️ Email</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.bottomRow}>
-              <TouchableOpacity style={styles.completeBtn}>
-                <Text style={styles.completeText}>✓ Mark Complete</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteBtn}>
-                <Text style={styles.deleteText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-
-        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Live Requests Near You</Text>
-        {REQUESTS.map((req) => (
-          <View key={req.id} style={styles.requestCard}>
-            <View style={[styles.heatBar, { backgroundColor: HEAT_COLOR[req.heat] }]} />
-            <View style={styles.requestBody}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.requestTrade}>
-                  {req.icon} {req.trade}
-                </Text>
-                <Text style={styles.requestTime}>{req.timeAgo}</Text>
-              </View>
-              <Text style={styles.requestDesc}>{req.description}</Text>
-              <Text style={styles.requestMeta}>
-                {req.distance} · {req.postcode}
+        <View>
+          {activeJobs.length === 0 ? (
+            <View style={styles.emptyBlock}>
+              <Text style={styles.emptyText}>No active jobs right now</Text>
+              <Text style={styles.emptySub}>
+                Accept a request below to get started
               </Text>
-              <View style={styles.bottomRow}>
-                <TouchableOpacity style={styles.acceptBtn}>
-                  <Text style={styles.acceptText}>Accept · 1 credit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.viewBtn}>
-                  <Text style={styles.viewText}>👁 View</Text>
-                </TouchableOpacity>
-              </View>
             </View>
-          </View>
-        ))}
+          ) : (
+            activeJobs.map((job) => {
+              const isCompleting = completing === job.id;
+              return (
+                <View key={job.id} style={styles.jobCard}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.jobName}>{job.customerName ?? 'Customer'}</Text>
+                    <View style={[styles.statusPill, { backgroundColor: '#00C67A22' }]}>
+                      <Text style={[styles.statusText, { color: '#00C67A' }]}>
+                        ● In Progress
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.jobMeta}>{job.jobType}</Text>
+                  {job.description ? (
+                    <Text style={styles.jobMeta}>{job.description}</Text>
+                  ) : null}
+
+                  <View style={styles.contactRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.contactBtn,
+                        { backgroundColor: '#1E3A8A33' },
+                        !job.customerPhone && styles.disabled,
+                      ]}
+                      onPress={() => callPhone(job.customerPhone)}
+                      disabled={!job.customerPhone}
+                    >
+                      <Text style={[styles.contactText, { color: '#60A5FA' }]}>📞 Call</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.contactBtn,
+                        { backgroundColor: '#00C67A22' },
+                        !job.customerPhone && styles.disabled,
+                      ]}
+                      onPress={() => smsPhone(job.customerPhone)}
+                      disabled={!job.customerPhone}
+                    >
+                      <Text style={[styles.contactText, { color: '#00C67A' }]}>💬 SMS</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.contactBtn,
+                        { backgroundColor: '#1C1C1C' },
+                        !job.customerEmail && styles.disabled,
+                      ]}
+                      onPress={() => emailUser(job.customerEmail)}
+                      disabled={!job.customerEmail}
+                    >
+                      <Text style={[styles.contactText, { color: '#9CA3AF' }]}>✉️ Email</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.bottomRow}>
+                    <TouchableOpacity
+                      style={[styles.completeBtn, isCompleting && styles.disabled]}
+                      onPress={() => handleComplete(job)}
+                      disabled={isCompleting}
+                    >
+                      {isCompleting ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.completeText}>✓ Mark Complete</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteBtn}>
+                      <Text style={styles.deleteText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        <View style={styles.stickyHeader}>
+          <Text style={styles.sectionTitle}>Live Requests Near You</Text>
+        </View>
+
+        <View>
+          {todayRequests.length === 0 ? (
+            <View style={styles.emptyBlock}>
+              <Text style={styles.emptyText}>No new requests today</Text>
+              <Text style={styles.emptySub}>
+                You'll be notified when jobs come in
+              </Text>
+            </View>
+          ) : (
+            todayRequests.map((req) => {
+              const h = heat(req.minutesAgo);
+              const isAccepting = accepting === req.id;
+              return (
+                <View key={req.id} style={styles.requestCard}>
+                  <View style={[styles.heatBar, { backgroundColor: HEAT_COLOR[h] }]} />
+                  <View style={styles.requestBody}>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.requestTrade}>{req.jobType}</Text>
+                      <Text style={styles.requestTime}>{timeAgo(req.minutesAgo)}</Text>
+                    </View>
+                    {req.description ? (
+                      <Text style={styles.requestDesc}>{req.description}</Text>
+                    ) : null}
+                    <Text style={styles.requestMeta}>
+                      {req.distanceMiles !== null
+                        ? `${req.distanceMiles}mi`
+                        : 'Distance unknown'}
+                      {req.customerName ? ` · ${req.customerName}` : ''}
+                    </Text>
+                    <View style={styles.bottomRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.acceptBtn,
+                          (isAccepting || accepting !== null) && styles.disabled,
+                        ]}
+                        onPress={() => handleAccept(req.id)}
+                        disabled={accepting !== null}
+                      >
+                        {isAccepting ? (
+                          <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.acceptText}>Accept · 1 credit</Text>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.viewBtn}>
+                        <Text style={styles.viewText}>👁 View</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {completedToday.length > 0 && (
+          <>
+            <TouchableOpacity
+              style={styles.completedToggle}
+              onPress={() => setShowCompleted((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.completedToggleText}>
+                ✓ Completed today ({completedToday.length}{' '}
+                {completedToday.length === 1 ? 'job' : 'jobs'})
+              </Text>
+              <Text style={styles.completedChevron}>{showCompleted ? '˅' : '›'}</Text>
+            </TouchableOpacity>
+
+            {showCompleted &&
+              completedToday.map((job) => (
+                <View key={job.id} style={styles.completedCard}>
+                  <View style={styles.completedBar} />
+                  <View style={styles.completedBody}>
+                    <Text style={styles.completedName}>
+                      {job.customerName ?? 'Customer'}
+                    </Text>
+                    <Text style={styles.completedMeta}>{job.jobType}</Text>
+                    {job.acceptedAt ? (
+                      <Text style={styles.completedTime}>
+                        Completed · {formatCompletedTime(job.acceptedAt)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+          </>
+        )}
+
+        <TouchableOpacity
+          style={styles.historyBtn}
+          onPress={() => router.push('/job-history')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.historyText}>View job history</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -182,11 +468,34 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 32,
   },
+  stickyHeader: {
+    backgroundColor: '#0A0A0A',
+    paddingVertical: 6,
+  },
   sectionTitle: {
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 12,
+  },
+  emptyBlock: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    marginBottom: 10,
+  },
+  emptyText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  emptySub: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  disabled: {
+    opacity: 0.5,
   },
   jobCard: {
     backgroundColor: '#111111',
@@ -314,6 +623,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  completedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#111111',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#00C67A',
+  },
+  completedToggleText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  completedChevron: {
+    color: '#6B7280',
+    fontSize: 20,
+    fontWeight: '300',
+  },
+  completedCard: {
+    flexDirection: 'row',
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    marginTop: 10,
+    overflow: 'hidden',
+    opacity: 0.6,
+  },
+  completedBar: {
+    width: 3,
+    backgroundColor: '#00C67A',
+  },
+  completedBody: {
+    flex: 1,
+    padding: 12,
+  },
+  completedName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  completedMeta: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  completedTime: {
+    color: '#6B7280',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  historyBtn: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 20,
+  },
+  historyText: {
     color: '#9CA3AF',
     fontSize: 14,
     fontWeight: '600',

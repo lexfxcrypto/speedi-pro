@@ -1,4 +1,7 @@
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -6,6 +9,34 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { fetchWithAuth, logout } from '../../lib/auth';
+
+const API = 'https://www.speeditrades.com';
+
+type Profile = {
+  id: string;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  trade: string | null;
+  trades: string[];
+  bio: string | null;
+  website: string | null;
+  yearsExperience: number | null;
+  businessAddress: string | null;
+  businessPhone: string | null;
+  isApproved: boolean;
+  coverageRadius: number | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  tiktokUrl: string | null;
+  linkedinUrl: string | null;
+  checkatradeUrl: string | null;
+  trustpilotUrl: string | null;
+  lat: number | null;
+  lng: number | null;
+  username: string | null;
+};
 
 type Cert = {
   id: string;
@@ -20,7 +51,54 @@ const CERTS: Cert[] = [
   { id: 'c3', icon: '📋', label: 'OFTEC Registration', status: 'pending' },
 ];
 
+type SocialRow = { icon: string; label: string; url: string };
+
 export default function Profile() {
+  const router = useRouter();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/profile`);
+        const data = await res.json();
+        setProfile(data);
+      } catch (e) {
+        console.log('Failed to load profile:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.centered]}>
+        <ActivityIndicator color="#00C67A" size="large" />
+      </SafeAreaView>
+    );
+  }
+
+  const tradeLine =
+    profile?.trade ||
+    (profile?.trades?.length ? profile.trades.join(' · ') : 'Tradesperson');
+
+  const coverageLabel = profile?.coverageRadius ? `${profile.coverageRadius}mi radius` : null;
+
+  const socials: SocialRow[] = [
+    profile?.facebookUrl ? { icon: '📘', label: profile.facebookUrl, url: profile.facebookUrl } : null,
+    profile?.instagramUrl ? { icon: '📸', label: profile.instagramUrl, url: profile.instagramUrl } : null,
+    profile?.tiktokUrl ? { icon: '🎵', label: profile.tiktokUrl, url: profile.tiktokUrl } : null,
+    profile?.linkedinUrl ? { icon: '💼', label: profile.linkedinUrl, url: profile.linkedinUrl } : null,
+  ].filter((s): s is SocialRow => s !== null);
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -30,20 +108,28 @@ export default function Profile() {
               <Text style={styles.avatarEmoji}>🔧</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroName}>Alex Hacking</Text>
-              <Text style={styles.heroTrade}>Plumber · Heating Engineer</Text>
+              <Text style={styles.heroName}>{profile?.name || 'Loading...'}</Text>
+              <Text style={styles.heroTrade}>{tradeLine}</Text>
             </View>
           </View>
           <View style={styles.pillRow}>
-            <View style={[styles.pill, { backgroundColor: '#00C67A33' }]}>
-              <Text style={[styles.pillText, { color: '#00C67A' }]}>✅ Approved</Text>
-            </View>
-            <View style={[styles.pill, { backgroundColor: '#00000033' }]}>
-              <Text style={[styles.pillText, { color: '#FFFFFF' }]}>10+ yrs</Text>
-            </View>
-            <View style={[styles.pill, { backgroundColor: '#1E3A8A66' }]}>
-              <Text style={[styles.pillText, { color: '#93C5FD' }]}>PR1 · 10mi</Text>
-            </View>
+            {profile?.isApproved ? (
+              <View style={[styles.pill, { backgroundColor: '#00C67A33' }]}>
+                <Text style={[styles.pillText, { color: '#00C67A' }]}>✅ Approved</Text>
+              </View>
+            ) : null}
+            {profile?.yearsExperience ? (
+              <View style={[styles.pill, { backgroundColor: '#00000033' }]}>
+                <Text style={[styles.pillText, { color: '#FFFFFF' }]}>
+                  {profile.yearsExperience}+ yrs
+                </Text>
+              </View>
+            ) : null}
+            {coverageLabel ? (
+              <View style={[styles.pill, { backgroundColor: '#1E3A8A66' }]}>
+                <Text style={[styles.pillText, { color: '#93C5FD' }]}>{coverageLabel}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -54,9 +140,17 @@ export default function Profile() {
               <Text style={styles.actionText}>Edit</Text>
             </TouchableOpacity>
           </View>
-          <DetailRow icon="🏢" label="Trading Name" value="LEX Plumbing and Heating" />
-          <DetailRow icon="📍" label="Coverage" value="PR6 8BZ · 10 mile radius" />
-          <DetailRow icon="📅" label="Experience" value="10+ years" />
+          <DetailRow icon="🏢" label="Trading Name" value={profile?.name || '—'} />
+          <DetailRow
+            icon="📍"
+            label="Coverage"
+            value={profile?.businessAddress || 'Location set'}
+          />
+          <DetailRow
+            icon="📅"
+            label="Experience"
+            value={profile?.yearsExperience ? `${profile.yearsExperience} years` : '—'}
+          />
         </View>
 
         <View style={styles.card}>
@@ -94,8 +188,7 @@ export default function Profile() {
                 style={[
                   styles.statusPill,
                   {
-                    backgroundColor:
-                      cert.status === 'verified' ? '#00C67A22' : '#F59E0B22',
+                    backgroundColor: cert.status === 'verified' ? '#00C67A22' : '#F59E0B22',
                   },
                 ]}
               >
@@ -121,18 +214,23 @@ export default function Profile() {
               <Text style={styles.actionText}>Add</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.socialRow}>
-            <Text style={styles.socialIcon}>📘</Text>
-            <Text style={styles.socialText}>facebook.com/lexplumbing</Text>
-          </View>
-          <View style={styles.socialRow}>
-            <Text style={styles.socialIcon}>📸</Text>
-            <Text style={[styles.socialText, { color: '#6B7280' }]}>Add Instagram</Text>
-            <TouchableOpacity style={styles.addBtn}>
-              <Text style={styles.addBtnText}>+ Add</Text>
-            </TouchableOpacity>
-          </View>
+          {socials.length === 0 ? (
+            <Text style={styles.socialEmpty}>Add your social links</Text>
+          ) : (
+            socials.map((s) => (
+              <View key={s.url} style={styles.socialRow}>
+                <Text style={styles.socialIcon}>{s.icon}</Text>
+                <Text style={styles.socialText} numberOfLines={1}>
+                  {s.label}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
+
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -154,6 +252,10 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#0A0A0A',
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   container: {
     padding: 20,
@@ -317,15 +419,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
   },
-  addBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#E64A1922',
+  socialEmpty: {
+    color: '#6B7280',
+    fontSize: 13,
+    paddingVertical: 8,
   },
-  addBtnText: {
-    color: '#E64A19',
-    fontSize: 12,
-    fontWeight: '700',
+  logoutBtn: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  logoutText: {
+    color: '#EF4444',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

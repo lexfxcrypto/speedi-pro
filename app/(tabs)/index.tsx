@@ -1,30 +1,40 @@
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  AppState,
   Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { fetchWithAuth, logout } from '../../lib/auth';
+
+const API = 'https://www.speeditrades.com';
 
 type Light = 'red' | 'amber' | 'green';
+type TlState = Light | 'offline';
 
-const STATUS_TEXT: Record<Light, string> = {
+const STATUS_TEXT: Record<TlState, string> = {
   green: 'Available Now',
   amber: 'Finishing Up',
   red: 'Busy',
+  offline: 'Offline — not visible on map',
 };
 
-const STATUS_COLOR: Record<Light, string> = {
+const STATUS_COLOR: Record<TlState, string> = {
   green: '#00C67A',
   amber: '#F59E0B',
   red: '#EF4444',
+  offline: '#9CA3AF',
 };
 
 const STATUS_EMOJI: Record<Light, string> = {
@@ -39,6 +49,12 @@ const HAPTIC: Record<Light, () => Promise<void>> = {
   red: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
 };
 
+const AVAIL_MAP: Record<Light, string> = {
+  green: 'AVAILABLE',
+  amber: 'SOON',
+  red: 'BUSY',
+};
+
 function formatTime(total: number): string {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
@@ -48,20 +64,267 @@ function formatTime(total: number): string {
   return `${m}:${pad(s)}`;
 }
 
-function countdownLabel(active: Light, time: string): string {
-  if (active === 'red') return `${STATUS_EMOJI.red} Busy · Free in ${time}`;
-  if (active === 'amber') return `${STATUS_EMOJI.amber} Finishing Up · Available in ${time}`;
+function countdownLabel(state: Light, time: string): string {
+  if (state === 'red') return `${STATUS_EMOJI.red} Busy · Free in ${time}`;
+  if (state === 'amber') return `${STATUS_EMOJI.amber} Finishing Up · Available in ${time}`;
   return `${STATUS_EMOJI.green} Available Now · ${time} remaining`;
+}
+
+function greetingForNow(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+async function updateAvailability(state: Light) {
+  try {
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    const { latitude, longitude } = location.coords;
+    await fetchWithAuth('https://www.speeditrades.com/api/native/availability', {
+      method: 'POST',
+      body: JSON.stringify({
+        availability: AVAIL_MAP[state],
+        lat: latitude,
+        lng: longitude,
+      }),
+    });
+    console.log('Availability updated:', state, latitude, longitude);
+  } catch (e) {
+    try {
+      await fetchWithAuth('https://www.speeditrades.com/api/native/availability', {
+        method: 'POST',
+        body: JSON.stringify({
+          availability: AVAIL_MAP[state],
+        }),
+      });
+      console.log('Availability updated without location:', e);
+    } catch (err) {
+      console.error('updateAvailability failed', err);
+    }
+  }
 }
 
 export default function Home() {
   const router = useRouter();
-  const [active, setActive] = useState<Light>('green');
+  const [tlState, setTlState] = useState<TlState>('offline');
+  const [userName, setUserName] = useState('Alex Hacking');
+  const [credits, setCredits] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [initialDuration, setInitialDuration] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const [currentEvent, setCurrentEvent] = useState<{
+    id: string;
+    title: string;
+    endTime: string;
+  } | null>(null);
+  const [dismissedEventId, setDismissedEventId] = useState<string | null>(null);
+  const [messageAlert, setMessageAlert] = useState<{
+    id: string;
+    otherUserName: string;
+    lastMessage: string;
+  } | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+  const prevRequestCount = useRef(0);
+  const [waitingCount, setWaitingCount] = useState(0);
+  const [quoteAlert, setQuoteAlert] = useState<{
+    count: number;
+    latest: { id: string; jobType: string } | null;
+  } | null>(null);
+  const prevQuoteCount = useRef(0);
+  const [jobsToday, setJobsToday] = useState(0);
+  const [rating, setRating] = useState<number | null>(null);
+  const [availableForQuotes, setAvailableForQuotes] = useState(false);
+  const [quotesUntil, setQuotesUntil] = useState<string | null>(null);
+  const [togglingQuotes, setTogglingQuotes] = useState(false);
+  const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const pulse = useRef(new Animated.Value(0.3)).current;
+  const livePulse = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const requestLocation = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission denied');
+      }
+    };
+    requestLocation();
+  }, []);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('auth_token');
+        console.log('Token:', token ? 'present' : 'missing');
+
+        const res = await fetchWithAuth(`${API}/api/native/me`);
+
+        console.log('Status:', res.status);
+        const data = await res.json();
+        console.log('User data:', JSON.stringify(data));
+
+        if (data.name) setUserName(data.name);
+        if (data.credits !== undefined) setCredits(data.credits);
+        if (data.availability) {
+          if (data.availability === 'AVAILABLE') setTlState('green');
+          if (data.availability === 'SOON') setTlState('amber');
+          if (data.availability === 'BUSY') setTlState('red');
+          if (data.availability === 'OFFLINE') setTlState('offline');
+        }
+        if (typeof data.availableForQuotes === 'boolean') {
+          setAvailableForQuotes(data.availableForQuotes);
+        }
+        if (data.quotesAvailableUntil) {
+          setQuotesUntil(data.quotesAvailableUntil);
+        } else {
+          setQuotesUntil(null);
+        }
+      } catch (e) {
+        console.log('Error loading user data:', e);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  useEffect(() => {
+    const loadCalendar = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/calendar`);
+        const data = await res.json();
+        if (!data?.connected || !Array.isArray(data.todayEvents)) return;
+        const now = new Date();
+        const live = data.todayEvents.find((e: { time: string; endTime: string }) => {
+          const start = new Date(e.time);
+          const end = new Date(e.endTime);
+          return !isNaN(start.getTime()) && !isNaN(end.getTime()) && now >= start && now <= end;
+        });
+        if (live) {
+          setCurrentEvent({ id: live.id, title: live.title, endTime: live.endTime });
+        } else {
+          setCurrentEvent(null);
+        }
+      } catch (e) {
+        console.log('Calendar load failed:', e);
+      }
+    };
+    loadCalendar();
+    const interval = setInterval(loadCalendar, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const checkMessages = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/messages`);
+        const data = await res.json();
+        if (!Array.isArray(data)) return;
+        const unread = data.filter((m: { unread?: boolean }) => m.unread);
+        if (unread.length > 0 && unread[0].id !== lastMessageIdRef.current) {
+          lastMessageIdRef.current = unread[0].id;
+          setMessageAlert({
+            id: unread[0].id,
+            otherUserName: unread[0].otherUserName ?? 'Unknown',
+            lastMessage: unread[0].lastMessage ?? '',
+          });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+      } catch (e) {
+        console.log('Message check failed:', e);
+      }
+    };
+
+    const checkQuotes = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/quotes`);
+        const data = await res.json();
+        const count = typeof data?.unreadCount === 'number' ? data.unreadCount : 0;
+        if (count > prevQuoteCount.current && prevQuoteCount.current > 0) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          setQuoteAlert({
+            count,
+            latest: data.quotes?.[0] ?? null,
+          });
+        }
+        prevQuoteCount.current = count;
+      } catch (e) {
+        console.log('Quote check failed:', e);
+      }
+    };
+
+    const checkRequests = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/waiting-requests`);
+        const data = await res.json();
+        if (!Array.isArray(data)) return;
+        if (data.length > prevRequestCount.current && prevRequestCount.current > 0) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        prevRequestCount.current = data.length;
+        setWaitingCount(data.length);
+      } catch (e) {
+        console.log('Request check failed:', e);
+      }
+    };
+
+    const loadStats = async () => {
+      try {
+        const [jobsRes, reviewsRes] = await Promise.all([
+          fetchWithAuth(`${API}/api/native/my-jobs`),
+          fetchWithAuth(`${API}/api/native/reviews`),
+        ]);
+        const jobs = await jobsRes.json();
+        const reviews = await reviewsRes.json();
+
+        if (Array.isArray(jobs)) {
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayMs = todayStart.getTime();
+          const count = jobs.filter(
+            (j: { acceptedAt?: string | null }) =>
+              j.acceptedAt && new Date(j.acceptedAt).getTime() >= todayMs,
+          ).length;
+          setJobsToday(count);
+        }
+
+        if (reviews && typeof reviews.averageRating === 'number' && reviews.totalCount > 0) {
+          setRating(reviews.averageRating);
+        } else {
+          setRating(null);
+        }
+      } catch (e) {
+        console.log('Stats load failed:', e);
+      }
+    };
+
+    checkMessages();
+    checkRequests();
+    checkQuotes();
+    loadStats();
+    const msgInterval = setInterval(() => {
+      checkMessages();
+      checkQuotes();
+    }, 15000);
+    const reqInterval = setInterval(checkRequests, 20000);
+    const statsInterval = setInterval(loadStats, 60000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        checkMessages();
+        checkRequests();
+        checkQuotes();
+        loadStats();
+      }
+    });
+    return () => {
+      clearInterval(msgInterval);
+      clearInterval(reqInterval);
+      clearInterval(statsInterval);
+      sub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -75,36 +338,144 @@ export default function Home() {
   }, [pulse]);
 
   useEffect(() => {
+    if (tlState !== 'green') return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(livePulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(livePulse, { toValue: 0.3, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [tlState, livePulse]);
+
+  useEffect(() => {
     if (startTime === null) return;
     const tick = () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const remaining = Math.max(0, initialDuration - elapsed);
       setTimerSeconds(remaining);
 
-      if (active === 'red' && remaining <= 3600 && remaining > 0) {
-        setActive('amber');
+      if (tlState === 'red' && remaining <= 3600 && remaining > 0) {
+        setTlState('amber');
       }
       if (remaining === 0) {
-        if (active === 'red' || active === 'amber') setActive('green');
+        if (tlState === 'red' || tlState === 'amber') setTlState('green');
         setStartTime(null);
       }
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [startTime, initialDuration, active]);
+  }, [startTime, initialDuration, tlState]);
+
+  useEffect(() => {
+    if (tlState === 'green') {
+      updateLocation();
+      locationInterval.current = setInterval(updateLocation, 120000);
+    } else if (locationInterval.current) {
+      clearInterval(locationInterval.current);
+      locationInterval.current = null;
+    }
+    return () => {
+      if (locationInterval.current) {
+        clearInterval(locationInterval.current);
+        locationInterval.current = null;
+      }
+    };
+  }, [tlState]);
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
+  const updateLocation = async () => {
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const { latitude, longitude } = location.coords;
+      await fetchWithAuth(`${API}/api/native/availability`, {
+        method: 'POST',
+        body: JSON.stringify({
+          availability: 'AVAILABLE',
+          lat: latitude,
+          lng: longitude,
+        }),
+      });
+      console.log('Location updated:', latitude, longitude);
+    } catch (e) {
+      console.log('Location update failed:', e);
+    }
+  };
 
   const handleLightPress = (light: Light) => {
     HAPTIC[light]();
     const duration = light === 'red' ? 7200 : 3600;
-    setActive(light);
+    setTlState(light);
     setInitialDuration(duration);
     setTimerSeconds(duration);
     setStartTime(Date.now());
+    updateAvailability(light);
+  };
+
+  const handleQuotesToggle = async (next: boolean) => {
+    setTogglingQuotes(true);
+    setAvailableForQuotes(next);
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/available-for-quotes`, {
+        method: 'POST',
+        body: JSON.stringify({ enabled: next }),
+      });
+      const data = await res.json();
+      if (typeof data?.availableForQuotes === 'boolean') {
+        setAvailableForQuotes(data.availableForQuotes);
+      }
+      setQuotesUntil(data?.quotesAvailableUntil ?? null);
+
+      if (next && data?.diagnostics && !data.diagnostics.showsOnMap) {
+        const reasons: string[] = [];
+        const d = data.diagnostics;
+        if (!d.roleOk) reasons.push(`• Your role is "${d.role}", needs to be TRADESPERSON`);
+        if (!d.providerTypeOk)
+          reasons.push(`• providerType is "service" — switch to a non-service type`);
+        if (!d.hasLatLng) reasons.push('• No location saved — set your address/postcode');
+        if (!d.notDemo) reasons.push('• Account is flagged as demo');
+        if (!d.availableForQuotes) reasons.push('• Server rejected the toggle');
+        if (!d.quotesAvailableUntilOk) reasons.push('• Expiry did not set correctly');
+        Alert.alert(
+          "You won't show on the quotes map yet",
+          reasons.join('\n') || 'Unknown reason — check with support.',
+          [{ text: 'OK' }],
+        );
+      }
+    } catch (e) {
+      console.log('Quotes toggle failed:', e);
+      setAvailableForQuotes(!next);
+    } finally {
+      setTogglingQuotes(false);
+    }
+  };
+
+  const handleOfflineToggle = () => {
+    if (tlState === 'offline') {
+      handleLightPress('green');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setTlState('offline');
+    setStartTime(null);
+    setTimerSeconds(0);
+    setInitialDuration(0);
+    fetchWithAuth(`${API}/api/native/availability`, {
+      method: 'POST',
+      body: JSON.stringify({ availability: 'OFFLINE' }),
+    }).catch((e) => console.log('offline failed', e));
   };
 
   const renderLight = (light: Light, baseColor: string) => {
-    const isActive = active === light;
+    const isActive = tlState === light;
     return (
       <TouchableOpacity
         activeOpacity={0.8}
@@ -128,22 +499,82 @@ export default function Home() {
   const hasTimer = startTime !== null;
   const progress =
     hasTimer && initialDuration > 0 ? (timerSeconds / initialDuration) * 100 : 0;
-  const activeColor = STATUS_COLOR[active];
+  const activeColor = STATUS_COLOR[tlState];
 
   return (
     <SafeAreaView style={styles.safe}>
+      {messageAlert && (
+        <View style={styles.messageBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.messageBannerTitle}>
+              💬 New message from {messageAlert.otherUserName}
+            </Text>
+            <Text style={styles.messageBannerBody} numberOfLines={1}>
+              {messageAlert.lastMessage?.substring(0, 50)}
+              {messageAlert.lastMessage && messageAlert.lastMessage.length > 50 ? '…' : ''}
+            </Text>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              setMessageAlert(null);
+              router.push('/(tabs)/messages');
+            }}
+            style={styles.bannerReplyBtn}
+          >
+            <Text style={styles.bannerReplyText}>Reply</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setMessageAlert(null)}
+            style={styles.bannerDismissBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.bannerDismissText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {quoteAlert && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            setQuoteAlert(null);
+            router.push('/(tabs)/messages');
+          }}
+          style={styles.messageBanner}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.messageBannerTitle}>📋 New quote request</Text>
+            <Text style={styles.messageBannerBody} numberOfLines={1}>
+              {quoteAlert.latest?.jobType || 'Tap to view'} — tap to respond
+            </Text>
+          </View>
+          <Text style={styles.messageBannerArrow}>→</Text>
+        </TouchableOpacity>
+      )}
+
       <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.logoutPill}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.logoutPillText}>Log Out</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.header}>
           <Image
             source={require('../../assets/images/speedi-logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
-          <View style={styles.creditsChip}>
-            <Text style={styles.creditsText}>179 cr</Text>
-          </View>
+          <Text style={styles.greeting}>
+            {greetingForNow()},{'\n'}
+            {userName || 'there'} 👋
+          </Text>
         </View>
-        <Text style={styles.greeting}>Good morning, Alex 👋</Text>
 
         <View style={styles.trafficLight}>
           {renderLight('red', '#EF4444')}
@@ -151,12 +582,12 @@ export default function Home() {
           {renderLight('green', '#00C67A')}
         </View>
 
-        <Text style={[styles.statusText, { color: activeColor }]}>{STATUS_TEXT[active]}</Text>
+        <Text style={[styles.statusText, { color: activeColor }]}>{STATUS_TEXT[tlState]}</Text>
 
-        {hasTimer && (
+        {hasTimer && tlState !== 'offline' && (
           <View style={styles.countdownBlock}>
             <Text style={[styles.countdownText, { color: activeColor }]}>
-              {countdownLabel(active, formatTime(timerSeconds))}
+              {countdownLabel(tlState as Light, formatTime(timerSeconds))}
             </Text>
             <View style={styles.progressTrack}>
               <View
@@ -169,24 +600,86 @@ export default function Home() {
           </View>
         )}
 
+        {tlState === 'green' && (
+          <View style={styles.liveIndicator}>
+            <Animated.View style={[styles.liveDot, { opacity: livePulse }]} />
+            <Text style={styles.liveText}>Live · updating location</Text>
+          </View>
+        )}
+
+        <View style={styles.offlineBtnWrap}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleOfflineToggle}
+            style={[
+              styles.offlineBtn,
+              tlState === 'offline' && { borderColor: 'rgba(0,198,122,0.4)' },
+            ]}
+          >
+            <Text
+              style={[
+                styles.offlineBtnText,
+                tlState === 'offline' && { color: '#00C67A' },
+              ]}
+            >
+              {tlState === 'offline' ? '● Go Online' : '● Go Offline'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {currentEvent &&
+        tlState === 'green' &&
+        dismissedEventId !== currentEvent.id ? (
+          <View style={styles.eventSuggest}>
+            <Text style={styles.eventSuggestText}>
+              📅 You have <Text style={styles.eventSuggestStrong}>{currentEvent.title}</Text>{' '}
+              until{' '}
+              {new Date(currentEvent.endTime).toLocaleTimeString('en-GB', {
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
+            </Text>
+            <Text style={styles.eventSuggestSub}>Want to go red automatically?</Text>
+            <View style={styles.eventSuggestRow}>
+              <TouchableOpacity
+                style={styles.eventSuggestPrimary}
+                onPress={() => {
+                  handleLightPress('red');
+                  setDismissedEventId(currentEvent.id);
+                }}
+              >
+                <Text style={styles.eventSuggestPrimaryText}>Go Red</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.eventSuggestSecondary}
+                onPress={() => setDismissedEventId(currentEvent.id)}
+              >
+                <Text style={styles.eventSuggestSecondaryText}>Dismiss</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: '#E64A19' }]}>179</Text>
+            <Text style={[styles.statValue, { color: '#E64A19' }]}>{credits}</Text>
             <Text style={styles.statLabel}>Credits</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: '#00C67A' }]}>3</Text>
+            <Text style={[styles.statValue, { color: '#00C67A' }]}>{jobsToday}</Text>
             <Text style={styles.statLabel}>Jobs Today</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: '#FFFFFF' }]}>4.9★</Text>
+            <Text style={[styles.statValue, { color: '#FFFFFF' }]}>
+              {rating !== null ? `${rating.toFixed(1)}★` : '—'}
+            </Text>
             <Text style={styles.statLabel}>Rating</Text>
           </View>
         </View>
 
         <View style={styles.buyCreditsCard}>
           <Text style={styles.buyIcon}>💳</Text>
-          <Text style={styles.buyLabel}>179 credits remaining</Text>
+          <Text style={styles.buyLabel}>{credits} credits remaining</Text>
           <TouchableOpacity
             style={styles.topUpBtn}
             onPress={() => Alert.alert('Buy Credits', 'Credit packs coming soon')}
@@ -195,22 +688,46 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.quotesCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.quotesTitle}>Available for Quotes</Text>
+            <Text style={styles.quotesSubtitle}>
+              {availableForQuotes && quotesUntil
+                ? `On the live quotes map until ${new Date(quotesUntil).toLocaleTimeString(
+                    'en-GB',
+                    { hour: 'numeric', minute: '2-digit' },
+                  )}`
+                : 'Show up on the live map for customers looking for quotes (2h)'}
+            </Text>
+          </View>
+          <Switch
+            value={availableForQuotes}
+            onValueChange={handleQuotesToggle}
+            disabled={togglingQuotes}
+            trackColor={{ false: '#2A2A2A', true: '#E64A19' }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+
         <View style={styles.approvedCard}>
           <Text style={styles.approvedTitle}>✅ Speedi Approved</Text>
           <Text style={styles.approvedSubtitle}>Active · Verified credentials</Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.yoriNotif}
-          onPress={() => router.push('/(tabs)/waiting')}
-        >
-          <Animated.View style={[styles.yoriDot, { opacity: pulse }]} />
-          <Text style={styles.yoriNotifText}>
-            <Text style={styles.yoriNotifStrong}>Yori</Text> — 5 waiting in Preston
-          </Text>
-          <Text style={styles.yoriChevron}>›</Text>
-        </TouchableOpacity>
+        {waitingCount > 0 && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.yoriNotif}
+            onPress={() => router.push('/(tabs)/waiting')}
+          >
+            <Animated.View style={[styles.yoriDot, { opacity: pulse }]} />
+            <Text style={styles.yoriNotifText}>
+              <Text style={styles.yoriNotifStrong}>Yori</Text> — {waitingCount} waiting
+              nearby
+            </Text>
+            <Text style={styles.yoriChevron}>›</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           activeOpacity={0.8}
@@ -241,31 +758,39 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 32,
   },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  logoutPill: {
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  logoutPillText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    backgroundColor: 'transparent',
+    marginBottom: 24,
+    gap: 12,
   },
   logo: {
-    height: 32,
-    width: 120,
+    height: 160,
+    width: 220,
   },
   greeting: {
+    flex: 1,
     color: '#9CA3AF',
     fontSize: 13,
-    marginBottom: 24,
-  },
-  creditsChip: {
-    backgroundColor: '#1C1C1C',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  creditsText: {
-    color: '#E64A19',
-    fontSize: 14,
-    fontWeight: '600',
+    lineHeight: 18,
   },
   trafficLight: {
     alignSelf: 'center',
@@ -312,6 +837,136 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 2,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3B82F6',
+  },
+  liveText: {
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  offlineBtnWrap: {
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  offlineBtn: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 100,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  offlineBtnText: {
+    color: '#666666',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  eventSuggest: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.25)',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 20,
+  },
+  eventSuggestText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  eventSuggestStrong: {
+    fontWeight: '700',
+  },
+  eventSuggestSub: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  eventSuggestRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  eventSuggestPrimary: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  eventSuggestPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  eventSuggestSecondary: {
+    backgroundColor: '#1C1C1C',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  eventSuggestSecondaryText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  messageBanner: {
+    backgroundColor: '#E64A19',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  messageBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  messageBannerBody: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  messageBannerArrow: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginLeft: 12,
+  },
+  bannerReplyBtn: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginLeft: 10,
+  },
+  bannerReplyText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  bannerDismissBtn: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  bannerDismissText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
@@ -363,6 +1018,25 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  quotesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    gap: 12,
+  },
+  quotesTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  quotesSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 2,
   },
   approvedCard: {
     backgroundColor: '#111111',

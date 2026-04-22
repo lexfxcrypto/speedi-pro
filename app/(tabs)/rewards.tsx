@@ -1,11 +1,17 @@
+import { useEffect, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { fetchWithAuth } from '../../lib/auth';
+
+const API = 'https://www.speeditrades.com';
+const FALLBACK_CODE = 'WLLLJE7L';
 
 type HistoryItem = {
   id: string;
@@ -60,6 +66,32 @@ const HISTORY: HistoryItem[] = [
 ];
 
 export default function Rewards() {
+  const [referralCode, setReferralCode] = useState<string>(FALLBACK_CODE);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/me`);
+        const data = await res.json();
+        if (data?.referralCode) setReferralCode(data.referralCode);
+      } catch (e) {
+        console.log('Failed to load referral code:', e);
+      }
+    };
+    load();
+  }, []);
+
+  const referralUrl = `speedi.co.uk/join?ref=${referralCode}`;
+  const shareUrl = `https://${referralUrl}`;
+
+  const handleShare = async () => {
+    try {
+      await Share.share({ message: shareUrl });
+    } catch (e) {
+      console.log('Share failed:', e);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -71,15 +103,15 @@ export default function Rewards() {
           </Text>
 
           <View style={styles.codeBox}>
-            <Text style={styles.codeText}>ALEX-PR1</Text>
+            <Text style={styles.codeText}>{referralCode}</Text>
             <TouchableOpacity>
               <Text style={styles.copyText}>📋 Copy</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.linkText}>🔗 speedi.co.uk/join?ref=ALEX-PR1</Text>
+          <Text style={styles.linkText}>🔗 {referralUrl}</Text>
 
-          <TouchableOpacity style={styles.shareBtn}>
+          <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
             <Text style={styles.shareText}>📤 Share Referral Link</Text>
           </TouchableOpacity>
         </View>
