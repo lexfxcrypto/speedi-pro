@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Linking,
   SafeAreaView,
   ScrollView,
   Share,
@@ -11,86 +13,108 @@ import {
 import { fetchWithAuth } from '../../lib/auth';
 
 const API = 'https://www.speeditrades.com';
-const FALLBACK_CODE = 'WLLLJE7L';
 
 type HistoryItem = {
   id: string;
-  icon: string;
+  type: string;
+  amount: number;
+  createdAt: string;
   description: string;
-  date: string;
-  amount: string;
+  icon: string;
   positive: boolean;
 };
 
-const HISTORY: HistoryItem[] = [
-  {
-    id: 'h1',
-    icon: '⚡',
-    description: 'Job accepted — Sarah K.',
-    date: 'Today 2:14pm',
-    amount: '-1',
-    positive: false,
-  },
-  {
-    id: 'h2',
-    icon: '🎁',
-    description: 'Referral bonus — Mike T. joined',
-    date: 'Yesterday',
-    amount: '+5',
-    positive: true,
-  },
-  {
-    id: 'h3',
-    icon: '💳',
-    description: 'Credit pack — 25 credits',
-    date: '3 days ago',
-    amount: '+25',
-    positive: true,
-  },
-  {
-    id: 'h4',
-    icon: '⚡',
-    description: 'Job accepted — Tom B.',
-    date: '4 days ago',
-    amount: '-1',
-    positive: false,
-  },
-  {
-    id: 'h5',
-    icon: '⚡',
-    description: 'Job accepted — Emma T.',
-    date: '1 week ago',
-    amount: '-1',
-    positive: false,
-  },
-];
+type RewardsData = {
+  referralCode: string | null;
+  totalEarned: number;
+  referralCount: number;
+  history: HistoryItem[];
+};
+
+function formatRelative(iso: string): string {
+  const now = new Date();
+  const d = new Date(iso);
+  const diffMs = now.getTime() - d.getTime();
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+
+  if (diffMs < minute) return 'Just now';
+  if (diffMs < hour) {
+    const m = Math.floor(diffMs / minute);
+    return `${m}m ago`;
+  }
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (d >= today) {
+    return `Today ${d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })}`;
+  }
+  const yesterday = new Date(today.getTime() - day);
+  if (d >= yesterday) return 'Yesterday';
+  if (diffMs < week) {
+    const days = Math.floor(diffMs / day);
+    return `${days} days ago`;
+  }
+  if (diffMs < 2 * week) return '1 week ago';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
 
 export default function Rewards() {
-  const [referralCode, setReferralCode] = useState<string>(FALLBACK_CODE);
+  const [data, setData] = useState<RewardsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetchWithAuth(`${API}/api/native/me`);
-        const data = await res.json();
-        if (data?.referralCode) setReferralCode(data.referralCode);
+        const res = await fetchWithAuth(`${API}/api/native/rewards`);
+        const body = await res.json();
+        setData(body);
       } catch (e) {
-        console.log('Failed to load referral code:', e);
+        console.log('Failed to load rewards:', e);
+      } finally {
+        setLoading(false);
       }
     };
     load();
   }, []);
 
-  const referralUrl = `speedi.co.uk/join?ref=${referralCode}`;
+  const referralCode = data?.referralCode ?? '';
+  const referralUrl = referralCode ? `speedi.co.uk/join?ref=${referralCode}` : 'speedi.co.uk';
   const shareUrl = `https://${referralUrl}`;
 
+  const handleCopyCode = async () => {
+    if (!referralCode) return;
+    try {
+      await Share.share({ message: referralCode });
+    } catch (e) {
+      console.log('Share failed:', e);
+    }
+  };
+
   const handleShare = async () => {
+    if (!referralCode) return;
     try {
       await Share.share({ message: shareUrl });
     } catch (e) {
       console.log('Share failed:', e);
     }
   };
+
+  const handleBuyCredits = async () => {
+    try {
+      await Linking.openURL('https://www.speeditrades.com/dashboard');
+    } catch (e) {
+      console.log('Open URL failed:', e);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.loading]}>
+        <ActivityIndicator color="#E64A19" size="large" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -103,55 +127,69 @@ export default function Rewards() {
           </Text>
 
           <View style={styles.codeBox}>
-            <Text style={styles.codeText}>{referralCode}</Text>
-            <TouchableOpacity>
+            <Text style={styles.codeText}>{referralCode || '—'}</Text>
+            <TouchableOpacity onPress={handleCopyCode} disabled={!referralCode}>
               <Text style={styles.copyText}>📋 Copy</Text>
             </TouchableOpacity>
           </View>
 
           <Text style={styles.linkText}>🔗 {referralUrl}</Text>
 
-          <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+          <TouchableOpacity
+            style={styles.shareBtn}
+            onPress={handleShare}
+            disabled={!referralCode}
+          >
             <Text style={styles.shareText}>📤 Share Referral Link</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>47</Text>
+            <Text style={styles.statValue}>{data?.totalEarned ?? 0}</Text>
             <Text style={styles.statLabel}>Credits Earned</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>3</Text>
+            <Text style={styles.statValue}>{data?.referralCount ?? 0}</Text>
             <Text style={styles.statLabel}>Referrals</Text>
           </View>
         </View>
 
         <View style={styles.historyCard}>
           <Text style={styles.historyTitle}>Credit History</Text>
-          {HISTORY.map((item, i) => (
-            <View
-              key={item.id}
-              style={[styles.historyRow, i < HISTORY.length - 1 && styles.historyDivider]}
-            >
-              <Text style={styles.historyIcon}>{item.icon}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.historyDesc}>{item.description}</Text>
-                <Text style={styles.historyDate}>{item.date}</Text>
-              </View>
-              <Text
+          {(data?.history.length ?? 0) === 0 ? (
+            <Text style={styles.historyEmpty}>
+              No credit activity yet. Accept a job or buy a pack to get started.
+            </Text>
+          ) : (
+            data!.history.map((item, i) => (
+              <View
+                key={item.id}
                 style={[
-                  styles.historyAmount,
-                  { color: item.positive ? '#00C67A' : '#EF4444' },
+                  styles.historyRow,
+                  i < data!.history.length - 1 && styles.historyDivider,
                 ]}
               >
-                {item.amount}
-              </Text>
-            </View>
-          ))}
+                <Text style={styles.historyIcon}>{item.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyDesc}>{item.description}</Text>
+                  <Text style={styles.historyDate}>{formatRelative(item.createdAt)}</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.historyAmount,
+                    { color: item.positive ? '#00C67A' : '#EF4444' },
+                  ]}
+                >
+                  {item.positive ? '+' : ''}
+                  {item.amount}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
 
-        <TouchableOpacity style={styles.buyBtn}>
+        <TouchableOpacity style={styles.buyBtn} onPress={handleBuyCredits}>
           <Text style={styles.buyText}>💳 Buy More Credits</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -163,6 +201,10 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#0A0A0A',
+  },
+  loading: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   container: {
     padding: 20,
@@ -260,6 +302,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
   },
+  historyEmpty: {
+    color: '#6B7280',
+    fontSize: 13,
+    paddingVertical: 12,
+    textAlign: 'center',
+  },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -297,6 +345,6 @@ const styles = StyleSheet.create({
   buyText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });
