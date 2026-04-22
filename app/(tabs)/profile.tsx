@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -53,10 +54,42 @@ const CERTS: Cert[] = [
 
 type SocialRow = { icon: string; label: string; url: string };
 
+type CompanyCtx = {
+  id: string;
+  name: string;
+  isApproved: boolean;
+  creditBalance: number;
+  creditsResetDate: string;
+  messageMode: 'dispatcher' | 'autonomous';
+  inviteCode: string;
+};
+
+type Worker = {
+  id: string;
+  userId: string | null;
+  role: string | null;
+  messageMode: 'dispatcher' | 'autonomous';
+  creditBalance: number;
+  clockedIn: boolean;
+  isActive: boolean;
+  inviteAccepted: boolean;
+  user: {
+    id: string;
+    name: string | null;
+    trade: string | null;
+    availability: 'AVAILABLE' | 'SOON' | 'BUSY' | 'OFFLINE' | null;
+    availableUntil: string | null;
+    lat: number | null;
+    lng: number | null;
+  } | null;
+};
+
 export default function Profile() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [company, setCompany] = useState<CompanyCtx | null>(null);
+  const [workers, setWorkers] = useState<Worker[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -73,9 +106,44 @@ export default function Profile() {
     load();
   }, []);
 
+  useEffect(() => {
+    const loadCompany = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/me`);
+        const data = await res.json();
+        if (data?.ownedCompany) {
+          setCompany(data.ownedCompany);
+          try {
+            const wRes = await fetchWithAuth(`${API}/api/native/company/workers`);
+            const wData = await wRes.json();
+            if (Array.isArray(wData)) setWorkers(wData);
+          } catch (e) {
+            console.log('Failed to load workers:', e);
+          }
+        }
+      } catch (e) {
+        console.log('Failed to load company context:', e);
+      }
+    };
+    loadCompany();
+  }, []);
+
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
+  };
+
+  const handleShareInvite = async () => {
+    if (!company) return;
+    const url = `${API}/invite/${company.inviteCode}`;
+    try {
+      await Share.share({
+        message: `Join ${company.name} on Speedi — tap to accept: ${url}`,
+        url,
+      });
+    } catch (e) {
+      console.log('Share failed:', e);
+    }
   };
 
   if (loading) {
@@ -132,6 +200,89 @@ export default function Profile() {
             ) : null}
           </View>
         </View>
+
+        {company && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>🏢 {company.name}</Text>
+              <View
+                style={[
+                  styles.statusPill,
+                  { backgroundColor: company.isApproved ? '#00C67A22' : '#F59E0B22' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: company.isApproved ? '#00C67A' : '#F59E0B' },
+                  ]}
+                >
+                  {company.isApproved ? '✓ Approved' : 'Pending approval'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.creditBlock}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.creditValue}>{company.creditBalance}</Text>
+                <Text style={styles.creditLabel}>Company credits remaining</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.creditReset}>
+                  Resets{' '}
+                  {new Date(company.creditsResetDate).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                </Text>
+                <Text style={styles.creditMode}>Mode: {company.messageMode}</Text>
+              </View>
+            </View>
+
+            <View style={styles.workersHeader}>
+              <Text style={styles.workersTitle}>Workers ({workers.length})</Text>
+              <TouchableOpacity onPress={handleShareInvite}>
+                <Text style={styles.actionText}>+ Invite</Text>
+              </TouchableOpacity>
+            </View>
+
+            {workers.length === 0 ? (
+              <Text style={styles.workersEmpty}>
+                No workers yet. Tap Invite to add your first one.
+              </Text>
+            ) : (
+              workers.map((w) => (
+                <View key={w.id} style={styles.workerRow}>
+                  <View
+                    style={[
+                      styles.workerDot,
+                      {
+                        backgroundColor:
+                          w.user?.availability === 'AVAILABLE'
+                            ? '#00C67A'
+                            : w.user?.availability === 'SOON'
+                            ? '#F59E0B'
+                            : w.user?.availability === 'BUSY'
+                            ? '#EF4444'
+                            : '#6B7280',
+                      },
+                    ]}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.workerName}>
+                      {w.user?.name ?? (w.inviteAccepted ? 'Unnamed' : 'Pending invite')}
+                    </Text>
+                    <Text style={styles.workerMeta}>
+                      {w.user?.trade ?? 'Worker'} · {w.messageMode}
+                      {!w.inviteAccepted ? ' · invite pending' : ''}
+                    </Text>
+                  </View>
+                  <Text style={styles.workerCredits}>{w.creditBalance}</Text>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -438,5 +589,76 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 15,
     fontWeight: '600',
+  },
+  creditBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1C',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  creditValue: {
+    color: '#E64A19',
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  creditLabel: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  creditReset: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  creditMode: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    marginTop: 4,
+    textTransform: 'capitalize',
+  },
+  workersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  workersTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  workersEmpty: {
+    color: '#6B7280',
+    fontSize: 13,
+    paddingVertical: 8,
+  },
+  workerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 12,
+  },
+  workerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  workerName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  workerMeta: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  workerCredits: {
+    color: '#E64A19',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

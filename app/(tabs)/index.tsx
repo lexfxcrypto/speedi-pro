@@ -55,6 +55,40 @@ const AVAIL_MAP: Record<Light, string> = {
   red: 'BUSY',
 };
 
+type OwnedCompany = {
+  id: string;
+  name: string;
+  isApproved: boolean;
+  creditBalance: number;
+  creditsResetDate: string;
+  messageMode: 'dispatcher' | 'autonomous';
+  inviteCode: string;
+};
+
+type CompanyWorkerCtx = {
+  id: string;
+  companyId: string;
+  messageMode: 'dispatcher' | 'autonomous';
+  isActive: boolean;
+  company: {
+    id: string;
+    name: string;
+    isApproved: boolean;
+    creditBalance: number;
+  };
+};
+
+type CompanyMessage = {
+  id: string;
+  createdAt: string;
+  content: string;
+  customerPhone: string | null;
+  customerEmail: string | null;
+  sender: { id: string; name: string | null };
+  receiver: { id: string; name: string | null };
+  intendedReceiver: { id: string; name: string | null } | null;
+};
+
 function formatTime(total: number): string {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
@@ -140,6 +174,11 @@ export default function Home() {
   const [quotesUntil, setQuotesUntil] = useState<string | null>(null);
   const [togglingQuotes, setTogglingQuotes] = useState(false);
   const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [ownedCompany, setOwnedCompany] = useState<OwnedCompany | null>(null);
+  const [companyWorker, setCompanyWorker] = useState<CompanyWorkerCtx | null>(null);
+  const [companyMessages, setCompanyMessages] = useState<CompanyMessage[]>([]);
+  const [companyBannerMsg, setCompanyBannerMsg] = useState<CompanyMessage | null>(null);
+  const prevCompanyMsgIds = useRef<Set<string>>(new Set());
 
   const pulse = useRef(new Animated.Value(0.3)).current;
   const livePulse = useRef(new Animated.Value(0.3)).current;
@@ -182,6 +221,8 @@ export default function Home() {
         } else {
           setQuotesUntil(null);
         }
+        if (data.ownedCompany) setOwnedCompany(data.ownedCompany);
+        if (data.companyWorker) setCompanyWorker(data.companyWorker);
       } catch (e) {
         console.log('Error loading user data:', e);
       }
@@ -325,6 +366,44 @@ export default function Home() {
       sub.remove();
     };
   }, []);
+
+  useEffect(() => {
+    const hasCompanyContext =
+      !!ownedCompany ||
+      (!!companyWorker && companyWorker.messageMode === 'dispatcher');
+    if (!hasCompanyContext) return;
+
+    const checkCompanyMessages = async () => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/native/company/messages`);
+        const data = await res.json();
+        if (!Array.isArray(data)) return;
+        const newIds = new Set<string>(data.map((m: CompanyMessage) => m.id));
+        const prevIds = prevCompanyMsgIds.current;
+        if (prevIds.size > 0) {
+          const firstNew = data.find((m: CompanyMessage) => !prevIds.has(m.id));
+          if (firstNew) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            setCompanyBannerMsg(firstNew);
+          }
+        }
+        prevCompanyMsgIds.current = newIds;
+        setCompanyMessages(data);
+      } catch (e) {
+        console.log('Company messages check failed:', e);
+      }
+    };
+
+    checkCompanyMessages();
+    const interval = setInterval(checkCompanyMessages, 20000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') checkCompanyMessages();
+    });
+    return () => {
+      clearInterval(interval);
+      sub.remove();
+    };
+  }, [ownedCompany, companyWorker]);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -554,6 +633,31 @@ export default function Home() {
         </TouchableOpacity>
       )}
 
+      {companyBannerMsg && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            setCompanyBannerMsg(null);
+            /* scroll to inbox */
+          }}
+          style={styles.messageBanner}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.messageBannerTitle}>
+              📨 New company message
+              {companyBannerMsg.intendedReceiver?.name
+                ? ` for ${companyBannerMsg.intendedReceiver.name}`
+                : ''}
+            </Text>
+            <Text style={styles.messageBannerBody} numberOfLines={1}>
+              {companyBannerMsg.sender.name ?? 'Someone'} —{' '}
+              {companyBannerMsg.content?.substring(0, 60)}
+            </Text>
+          </View>
+          <Text style={styles.messageBannerArrow}>→</Text>
+        </TouchableOpacity>
+      )}
+
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -676,6 +780,43 @@ export default function Home() {
             <Text style={styles.statLabel}>Rating</Text>
           </View>
         </View>
+
+        {(ownedCompany || companyWorker?.messageMode === 'dispatcher') &&
+          companyMessages.length > 0 && (
+            <View style={styles.companyInbox}>
+              <View style={styles.companyInboxHeader}>
+                <Text style={styles.companyInboxTitle}>📨 Company Inbox</Text>
+                <Text style={styles.companyInboxCount}>
+                  {companyMessages.length} pending
+                </Text>
+              </View>
+              {companyMessages.slice(0, 5).map((m) => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={styles.companyMsgCard}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/(tabs)/messages')}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.companyMsgFor}>
+                      For {m.intendedReceiver?.name ?? 'your company'}
+                    </Text>
+                    <Text style={styles.companyMsgPreview} numberOfLines={2}>
+                      {m.content}
+                    </Text>
+                    <Text style={styles.companyMsgMeta}>
+                      From {m.sender.name ?? 'Unknown'} ·{' '}
+                      {new Date(m.createdAt).toLocaleTimeString('en-GB', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                  <Text style={styles.companyMsgArrow}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
         <View style={styles.buyCreditsCard}>
           <Text style={styles.buyIcon}>💳</Text>
@@ -1118,6 +1259,60 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   calendarChevron: {
+    color: '#6B7280',
+    fontSize: 22,
+    fontWeight: '300',
+  },
+  companyInbox: {
+    marginBottom: 12,
+  },
+  companyInboxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  companyInboxTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  companyInboxCount: {
+    color: '#E64A19',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  companyMsgCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
+    gap: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#E64A19',
+  },
+  companyMsgFor: {
+    color: '#E64A19',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  companyMsgPreview: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  companyMsgMeta: {
+    color: '#6B7280',
+    fontSize: 11,
+    marginTop: 6,
+  },
+  companyMsgArrow: {
     color: '#6B7280',
     fontSize: 22,
     fontWeight: '300',
