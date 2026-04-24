@@ -7,9 +7,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SERVICE_CATEGORIES_LIST } from '../../lib/services';
+import { SPORTS_CATEGORIES } from '../../lib/sports';
+import { TRADE_CATEGORIES } from '../../lib/trades';
 
 type SignupIntent = 'sole_trader' | 'company_owner';
 type ProviderType = 'trade' | 'service' | 'sports';
@@ -56,18 +60,36 @@ const PREMISES_OPTIONS: Array<{ key: PremisesMode; title: string; subtext: strin
   { key: 'both', title: 'Both', subtext: 'Mix of both' },
 ];
 
+type CategoryOption = { name: string; emoji?: string };
+
+function getCategoryOptions(pt: ProviderType | null): CategoryOption[] {
+  if (pt === 'trade') {
+    return Object.keys(TRADE_CATEGORIES).map((name) => ({ name }));
+  }
+  if (pt === 'service') {
+    return SERVICE_CATEGORIES_LIST.map((c) => ({ name: c.name, emoji: c.emoji }));
+  }
+  if (pt === 'sports') {
+    return [
+      ...Object.keys(SPORTS_CATEGORIES).map((name) => ({ name })),
+      { name: 'Other' },
+    ];
+  }
+  return [];
+}
+
 export default function Wizard() {
   const [step, setStep] = useState(1);
   const [signupIntent, setSignupIntent] = useState<SignupIntent | null>(null);
   const [providerType, setProviderType] = useState<ProviderType | null>(null);
   const [premisesMode, setPremisesMode] = useState<PremisesMode | null>(null);
-
-  // Reserved for Steps 4–7 (Phase 2E-β / γ). Declared here so the final wizard
-  // has its full state shape in one place; setters are currently only invoked
-  // by handleStartOver().
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showOtherInput, setShowOtherInput] = useState(false);
   const [otherText, setOtherText] = useState('');
+
+  // Reserved for Steps 5–7 (Phase 2E-β-2 / γ). Declared here so the final
+  // wizard has its full state shape in one place; setters are currently only
+  // invoked by handleStartOver().
   const [otherSuggestions, setOtherSuggestions] = useState<string[]>([]);
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [otherJobDescription, setOtherJobDescription] = useState('');
@@ -81,8 +103,10 @@ export default function Wizard() {
   const [goLive, setGoLive] = useState(false);
 
   const theme = getTheme(providerType);
+  const categoryOptions = getCategoryOptions(providerType);
+  const canContinueStep4 = !!selectedCategory || !!otherText.trim();
 
-  // TODO Phase 2E-β/γ: haptic feedback on tile taps (expo-haptics is already a dep).
+  // TODO Phase 2E-β-2/γ: haptic feedback on tile taps (expo-haptics is already a dep).
   const handleSignupIntent = (intent: SignupIntent) => {
     setSignupIntent(intent);
     setStep(nextStep(1, providerType));
@@ -96,6 +120,21 @@ export default function Wizard() {
   const handlePremisesMode = (pm: PremisesMode) => {
     setPremisesMode(pm);
     setStep(nextStep(3, providerType));
+  };
+
+  const handleCategoryTap = (catName: string) => {
+    if (catName === 'Other') {
+      setSelectedCategory(null);
+      setShowOtherInput(true);
+      return;
+    }
+    setSelectedCategory(catName);
+    setShowOtherInput(false);
+    setOtherText('');
+  };
+
+  const handleContinueStep4 = () => {
+    setStep(nextStep(step, providerType));
   };
 
   const handleBack = () => {
@@ -256,11 +295,51 @@ export default function Wizard() {
             </View>
           )}
 
-          {step >= 4 && (
+          {step === 4 && (
+            <View>
+              <Text style={styles.heading}>What&apos;s your category?</Text>
+              <View style={styles.pillWrap}>
+                {categoryOptions.map((opt) => {
+                  const isOther = opt.name === 'Other';
+                  const selected = isOther ? showOtherInput : selectedCategory === opt.name;
+                  return (
+                    <TouchableOpacity
+                      key={opt.name}
+                      style={[
+                        styles.pill,
+                        selected && { borderColor: theme },
+                      ]}
+                      onPress={() => handleCategoryTap(opt.name)}
+                      activeOpacity={0.85}
+                    >
+                      <Text
+                        style={[styles.pillText, selected && { color: theme }]}
+                      >
+                        {opt.emoji ? `${opt.emoji} ${opt.name}` : opt.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {showOtherInput && (
+                <TextInput
+                  style={styles.otherInput}
+                  placeholder="Describe your category"
+                  placeholderTextColor="#6B7280"
+                  value={otherText}
+                  onChangeText={setOtherText}
+                  autoCapitalize="words"
+                />
+              )}
+              {/* TODO Phase 2 polish: add /api/custom-categories autocomplete suggestions, matches web pattern */}
+            </View>
+          )}
+
+          {step >= 5 && (
             <View style={styles.placeholderContainer}>
-              <Text style={styles.heading}>Phase 2E-α complete</Text>
+              <Text style={styles.heading}>Phase 2E-β-1 complete</Text>
               <Text style={styles.placeholderSubtext}>
-                Steps 4–7 coming in 2E-β/γ.
+                Steps 5–7 coming in 2E-β-2 / γ.
               </Text>
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: theme }]}
@@ -272,6 +351,23 @@ export default function Wizard() {
             </View>
           )}
         </ScrollView>
+
+        {step === 4 && (
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={[
+                styles.continueButton,
+                { backgroundColor: theme },
+                !canContinueStep4 && styles.continueButtonDisabled,
+              ]}
+              onPress={handleContinueStep4}
+              disabled={!canContinueStep4}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.continueButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -354,6 +450,53 @@ const styles = StyleSheet.create({
   tileSubtext: {
     color: '#6B7280',
     fontSize: 14,
+  },
+  pillWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pill: {
+    backgroundColor: '#111111',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  pillText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  otherInput: {
+    backgroundColor: '#111111',
+    color: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+    marginTop: 16,
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  continueButton: {
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  continueButtonDisabled: {
+    opacity: 0.5,
+  },
+  continueButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   placeholderContainer: {
     alignItems: 'stretch',
