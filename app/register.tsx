@@ -12,27 +12,37 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { login } from '../lib/auth';
+import { register } from '../lib/auth';
 
-export default function Login() {
+export default function Register() {
   const router = useRouter();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSignIn = async () => {
+  const canSubmit = !!name && !!email && !!phoneNumber && !!password && !loading;
+
+  const handleCreate = async () => {
     setError('');
     setLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await register({
+        name,
+        email,
+        phoneNumber,
+        password,
+        role: 'TRADESPERSON',
+      });
       if (result.success) {
-        router.replace('/(tabs)');
+        router.replace('/onboarding/welcome');
       } else {
-        setError(result.error || 'Invalid email or password');
+        setError(result.error ?? 'Failed to create account');
       }
     } catch {
-      setError('Invalid email or password');
+      setError('Failed to create account');
     } finally {
       setLoading(false);
     }
@@ -51,7 +61,17 @@ export default function Login() {
             resizeMode="contain"
           />
 
-          <Text style={styles.title}>Sign in to Speedi Pro</Text>
+          <Text style={styles.title}>Create your Speedi Pro account</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Name"
+            placeholderTextColor="#6B7280"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            editable={!loading}
+          />
 
           <TextInput
             style={styles.input}
@@ -62,6 +82,16 @@ export default function Login() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!loading}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Phone number"
+            placeholderTextColor="#6B7280"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="phone-pad"
             editable={!loading}
           />
 
@@ -78,24 +108,22 @@ export default function Login() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSignIn}
-            disabled={loading}
+            style={[styles.button, !canSubmit && styles.buttonDisabled]}
+            onPress={handleCreate}
+            disabled={!canSubmit}
             activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
+              <Text style={styles.buttonText}>Create account</Text>
             )}
           </TouchableOpacity>
 
-          <Text style={styles.helper}>Use your Speedi account credentials</Text>
-
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/register')} disabled={loading}>
-              <Text style={styles.footerLink}>Create one</Text>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.push('/login')} disabled={loading}>
+              <Text style={styles.footerLink}>Sign in</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -161,16 +189,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  helper: {
-    color: '#6B7280',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 16,
-  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 20,
   },
   footerText: {
     color: '#6B7280',
