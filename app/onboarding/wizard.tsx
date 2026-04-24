@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,12 +11,13 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getToken } from '../../lib/auth';
+import { fetchWithAuth, getToken } from '../../lib/auth';
 import { SERVICE_CATEGORIES, SERVICE_CATEGORIES_LIST } from '../../lib/services';
 import { SPORTS_CATEGORIES } from '../../lib/sports';
 import { TRADE_CATEGORIES } from '../../lib/trades';
@@ -104,6 +106,7 @@ function getJobsForCategory(pt: ProviderType | null, cat: string | null): string
 }
 
 export default function Wizard() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [signupIntent, setSignupIntent] = useState<SignupIntent | null>(null);
   const [providerType, setProviderType] = useState<ProviderType | null>(null);
@@ -120,11 +123,9 @@ export default function Wizard() {
   const [radius, setRadius] = useState('10');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
-
-  // Reserved for Step 7 (Phase 2E-γ). Setters currently only invoked by
-  // handleStartOver().
-  const [otherSuggestions, setOtherSuggestions] = useState<string[]>([]);
-  const [goLive, setGoLive] = useState(false);
+  const [goLive, setGoLive] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const theme = getTheme(providerType);
   const categoryOptions = getCategoryOptions(providerType);
@@ -138,7 +139,7 @@ export default function Wizard() {
     return true;
   })();
 
-  // TODO Phase 2E-γ: haptic feedback on tile taps (expo-haptics is already a dep).
+  // TODO Phase 2 polish: haptic feedback on tile taps (expo-haptics is already a dep).
   const handleSignupIntent = (intent: SignupIntent) => {
     setSignupIntent(intent);
     setStep(nextStep(1, providerType));
@@ -177,27 +178,6 @@ export default function Wizard() {
 
   const handleBack = () => {
     setStep(previousStep(step, providerType));
-  };
-
-  const handleStartOver = () => {
-    setStep(1);
-    setSignupIntent(null);
-    setProviderType(null);
-    setPremisesMode(null);
-    setSelectedCategory(null);
-    setShowOtherInput(false);
-    setOtherText('');
-    setSelectedJobs([]);
-    setOtherJobDescription('');
-    setName('');
-    setBusinessName('');
-    setYearsExp('');
-    setPostcode('');
-    setRadius('10');
-    setPhotoUrl(null);
-    setPhotoUploading(false);
-    setOtherSuggestions([]);
-    setGoLive(false);
   };
 
   const handlePhotoPick = async () => {
@@ -254,6 +234,59 @@ export default function Wizard() {
     }
   };
 
+  const handleSubmit = async () => {
+    setSubmitError('');
+    setSubmitting(true);
+
+    try {
+      const isOther = showOtherInput;
+      const payload = {
+        signupIntent,
+        providerType,
+        premisesMode: providerType === 'sports' ? 'fixed' : premisesMode,
+        categoryMain: isOther ? otherText.trim() : selectedCategory,
+        isCustomCategory: isOther,
+        jobTypes: providerType === 'service' ? [] : selectedJobs,
+        servicesOffered:
+          providerType === 'service' || providerType === 'sports'
+            ? selectedJobs
+            : undefined,
+        otherJobDescription: isOther ? otherJobDescription.trim() : undefined,
+        name: name.trim(),
+        businessName: businessName.trim() || undefined,
+        yearsExp,
+        postcode: postcode.trim().toUpperCase(),
+        radius,
+        goLive,
+        photoUrl: photoUrl ?? undefined,
+      };
+
+      const response = await fetchWithAuth(`${API_BASE}/api/native/onboarding`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        let errMsg = 'Failed to complete setup';
+        try {
+          const parsed = JSON.parse(body);
+          errMsg = parsed.error || parsed.message || errMsg;
+        } catch {
+          if (body) errMsg = body;
+        }
+        throw new Error(errMsg);
+      }
+
+      router.replace('/(tabs)');
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Failed to complete setup'
+      );
+      setSubmitting(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
@@ -277,6 +310,7 @@ export default function Wizard() {
             style={styles.backButton}
             onPress={handleBack}
             activeOpacity={0.7}
+            disabled={submitting}
           >
             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
             <Text style={styles.backText}>Back</Text>
@@ -605,19 +639,38 @@ export default function Wizard() {
             </View>
           )}
 
-          {step >= 7 && (
-            <View style={styles.placeholderContainer}>
-              <Text style={styles.heading}>Phase 2E-β-2 complete</Text>
-              <Text style={styles.placeholderSubtext}>
-                Step 7 (final submit) coming in 2E-γ.
+          {step === 7 && (
+            <View>
+              <Text style={styles.heading}>You&apos;re ready</Text>
+              <Text style={styles.step7Body}>
+                Your profile is set up. Customers can see you on the map as soon as
+                you&apos;re live. You can go online or offline any time from your
+                dashboard.
               </Text>
-              <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: theme }]}
-                onPress={handleStartOver}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.primaryButtonText}>Start over</Text>
-              </TouchableOpacity>
+
+              <View style={styles.goLiveCard}>
+                <TouchableOpacity
+                  style={styles.goLiveRow}
+                  onPress={() => setGoLive(!goLive)}
+                  activeOpacity={0.85}
+                  disabled={submitting}
+                >
+                  <Text style={styles.goLiveLabel}>Go live now?</Text>
+                  <Switch
+                    value={goLive}
+                    onValueChange={setGoLive}
+                    trackColor={{ true: theme, false: '#2a2a2a' }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor="#2a2a2a"
+                    disabled={submitting}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.goLiveSubtext}>
+                  {goLive
+                    ? "You'll appear on the map for 1 hour then automatically go offline."
+                    : 'Stay offline — go live from the dashboard when ready.'}
+                </Text>
+              </View>
             </View>
           )}
         </ScrollView>
@@ -635,6 +688,30 @@ export default function Wizard() {
               activeOpacity={0.85}
             >
               <Text style={styles.continueButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {step === 7 && (
+          <View style={styles.footer}>
+            {submitError ? (
+              <Text style={styles.submitError}>{submitError}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={[
+                styles.continueButton,
+                { backgroundColor: theme },
+                submitting && styles.continueButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={submitting}
+              activeOpacity={0.85}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.continueButtonText}>Complete Setup</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -814,6 +891,34 @@ const styles = StyleSheet.create({
   photoEmoji: {
     fontSize: 28,
   },
+  step7Body: {
+    color: '#6B7280',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  goLiveCard: {
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    padding: 20,
+    marginBottom: 16,
+  },
+  goLiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  goLiveLabel: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  goLiveSubtext: {
+    color: '#6B7280',
+    fontSize: 14,
+    marginTop: 12,
+    lineHeight: 20,
+  },
   footer: {
     paddingHorizontal: 24,
     paddingTop: 12,
@@ -834,22 +939,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  placeholderContainer: {
-    alignItems: 'stretch',
-  },
-  placeholderSubtext: {
-    color: '#6B7280',
-    fontSize: 15,
-    marginBottom: 32,
-  },
-  primaryButton: {
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+  submitError: {
+    color: '#EF4444',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });

@@ -4,6 +4,9 @@ import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Linking } from 'react-native';
+import { fetchWithAuth } from '../lib/auth';
+
+const API_BASE = 'https://www.speeditrades.com';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -43,13 +46,37 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    SecureStore.getItemAsync('auth_token').then((token) => {
+    (async () => {
+      const token = await SecureStore.getItemAsync('auth_token');
       if (!token) {
         router.replace('/login');
-      } else {
+        return;
+      }
+
+      try {
+        const res = await fetchWithAuth(`${API_BASE}/api/native/me`);
+
+        if (res.status === 401) {
+          await SecureStore.deleteItemAsync('auth_token');
+          router.replace('/login');
+          return;
+        }
+
+        if (!res.ok) {
+          router.replace('/(tabs)');
+          return;
+        }
+
+        const user = await res.json();
+        if (user?.role === 'TRADESPERSON' && user?.signupV2Confirmed !== true) {
+          router.replace('/onboarding/wizard');
+        } else {
+          router.replace('/(tabs)');
+        }
+      } catch {
         router.replace('/(tabs)');
       }
-    });
+    })();
   }, [router]);
 
   useEffect(() => {
