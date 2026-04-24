@@ -527,7 +527,7 @@ export default function Home() {
         if (!d.roleOk) reasons.push(`• Your role is "${d.role}", needs to be TRADESPERSON`);
         if (!d.providerTypeOk)
           reasons.push(`• providerType is "service" — switch to a non-service type`);
-        if (!d.hasLatLng) reasons.push('• No location saved — set your address/postcode');
+        if (!d.hasLatLng) reasons.push('• Tap green first to share your live location');
         if (!d.notDemo) reasons.push('• Account is flagged as demo');
         if (!d.availableForQuotes) reasons.push('• Server rejected the toggle');
         if (!d.quotesAvailableUntilOk) reasons.push('• Expiry did not set correctly');
