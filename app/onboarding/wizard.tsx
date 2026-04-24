@@ -1,6 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -11,9 +15,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SERVICE_CATEGORIES_LIST } from '../../lib/services';
+import { getToken } from '../../lib/auth';
+import { SERVICE_CATEGORIES, SERVICE_CATEGORIES_LIST } from '../../lib/services';
 import { SPORTS_CATEGORIES } from '../../lib/sports';
 import { TRADE_CATEGORIES } from '../../lib/trades';
+
+const API_BASE = 'https://www.speeditrades.com';
 
 type SignupIntent = 'sole_trader' | 'company_owner';
 type ProviderType = 'trade' | 'service' | 'sports';
@@ -60,6 +67,16 @@ const PREMISES_OPTIONS: Array<{ key: PremisesMode; title: string; subtext: strin
   { key: 'both', title: 'Both', subtext: 'Mix of both' },
 ];
 
+const YEARS_OPTIONS = ['Under 1 year', '1-3 years', '3-10 years', '10+ years'];
+
+const RADIUS_OPTIONS: Array<{ display: string; value: string }> = [
+  { display: '1mi', value: '1' },
+  { display: '3mi', value: '3' },
+  { display: '5mi', value: '5' },
+  { display: '10mi', value: '10' },
+  { display: '20mi', value: '20' },
+];
+
 type CategoryOption = { name: string; emoji?: string };
 
 function getCategoryOptions(pt: ProviderType | null): CategoryOption[] {
@@ -78,6 +95,14 @@ function getCategoryOptions(pt: ProviderType | null): CategoryOption[] {
   return [];
 }
 
+function getJobsForCategory(pt: ProviderType | null, cat: string | null): string[] {
+  if (!cat) return [];
+  if (pt === 'trade') return TRADE_CATEGORIES[cat] ?? [];
+  if (pt === 'service') return SERVICE_CATEGORIES[cat] ?? [];
+  if (pt === 'sports') return SPORTS_CATEGORIES[cat] ?? [];
+  return [];
+}
+
 export default function Wizard() {
   const [step, setStep] = useState(1);
   const [signupIntent, setSignupIntent] = useState<SignupIntent | null>(null);
@@ -86,27 +111,34 @@ export default function Wizard() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showOtherInput, setShowOtherInput] = useState(false);
   const [otherText, setOtherText] = useState('');
-
-  // Reserved for Steps 5–7 (Phase 2E-β-2 / γ). Declared here so the final
-  // wizard has its full state shape in one place; setters are currently only
-  // invoked by handleStartOver().
-  const [otherSuggestions, setOtherSuggestions] = useState<string[]>([]);
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [otherJobDescription, setOtherJobDescription] = useState('');
   const [name, setName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [yearsExp, setYearsExp] = useState('');
   const [postcode, setPostcode] = useState('');
-  const [radius, setRadius] = useState('');
+  const [radius, setRadius] = useState('10');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  // Reserved for Step 7 (Phase 2E-γ). Setters currently only invoked by
+  // handleStartOver().
+  const [otherSuggestions, setOtherSuggestions] = useState<string[]>([]);
   const [goLive, setGoLive] = useState(false);
 
   const theme = getTheme(providerType);
   const categoryOptions = getCategoryOptions(providerType);
-  const canContinueStep4 = !!selectedCategory || !!otherText.trim();
+  const isOtherCategoryPath = showOtherInput || !selectedCategory;
+  const jobsForCategory = getJobsForCategory(providerType, selectedCategory);
 
-  // TODO Phase 2E-β-2/γ: haptic feedback on tile taps (expo-haptics is already a dep).
+  const canContinue = (() => {
+    if (step === 4) return !!selectedCategory || !!otherText.trim();
+    if (step === 5) return true;
+    if (step === 6) return !!name.trim() && !!postcode.trim();
+    return true;
+  })();
+
+  // TODO Phase 2E-γ: haptic feedback on tile taps (expo-haptics is already a dep).
   const handleSignupIntent = (intent: SignupIntent) => {
     setSignupIntent(intent);
     setStep(nextStep(1, providerType));
@@ -133,7 +165,13 @@ export default function Wizard() {
     setOtherText('');
   };
 
-  const handleContinueStep4 = () => {
+  const toggleJob = (job: string) => {
+    setSelectedJobs((prev) =>
+      prev.includes(job) ? prev.filter((j) => j !== job) : [...prev, job]
+    );
+  };
+
+  const handleContinue = () => {
     setStep(nextStep(step, providerType));
   };
 
@@ -149,17 +187,71 @@ export default function Wizard() {
     setSelectedCategory(null);
     setShowOtherInput(false);
     setOtherText('');
-    setOtherSuggestions([]);
     setSelectedJobs([]);
     setOtherJobDescription('');
     setName('');
     setBusinessName('');
     setYearsExp('');
     setPostcode('');
-    setRadius('');
+    setRadius('10');
     setPhotoUrl(null);
     setPhotoUploading(false);
+    setOtherSuggestions([]);
     setGoLive(false);
+  };
+
+  const handlePhotoPick = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission needed',
+        'Please allow photo access to upload a profile photo.'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;
+
+    setPhotoUploading(true);
+
+    try {
+      const asset = result.assets[0];
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        name: 'photo.jpg',
+        type: 'image/jpeg',
+      } as unknown as Blob);
+
+      const token = await getToken();
+      const response = await fetch(`${API_BASE}/api/upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+
+      const { url } = await response.json();
+      setPhotoUrl(url);
+    } catch (err) {
+      console.error('[photo upload]', err);
+      Alert.alert(
+        'Upload failed',
+        err instanceof Error ? err.message : 'Please try again'
+      );
+    } finally {
+      setPhotoUploading(false);
+    }
   };
 
   return (
@@ -335,11 +427,189 @@ export default function Wizard() {
             </View>
           )}
 
-          {step >= 5 && (
+          {step === 5 && (
+            <View>
+              <Text style={styles.heading}>What specifically do you offer?</Text>
+              {isOtherCategoryPath ? (
+                <TextInput
+                  style={styles.multilineInput}
+                  placeholder="Describe what you offer in a sentence or two"
+                  placeholderTextColor="#6B7280"
+                  value={otherJobDescription}
+                  onChangeText={setOtherJobDescription}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              ) : (
+                <>
+                  <Text style={styles.step5Subtext}>Select all that apply</Text>
+                  <View style={styles.pillWrap}>
+                    {jobsForCategory.map((job) => {
+                      const selected = selectedJobs.includes(job);
+                      return (
+                        <TouchableOpacity
+                          key={job}
+                          style={[
+                            styles.choicePill,
+                            selected && { backgroundColor: theme, borderColor: theme },
+                          ]}
+                          onPress={() => toggleJob(job)}
+                          activeOpacity={0.85}
+                        >
+                          <Text
+                            style={[
+                              styles.choicePillText,
+                              selected && { color: '#FFFFFF' },
+                            ]}
+                          >
+                            {job}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+            </View>
+          )}
+
+          {step === 6 && (
+            <View>
+              <Text style={styles.heading}>Your profile</Text>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Your name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. John Smith"
+                  placeholderTextColor="#6B7280"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Business or trading name (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Smith Plumbing Ltd"
+                  placeholderTextColor="#6B7280"
+                  value={businessName}
+                  onChangeText={setBusinessName}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Years in business</Text>
+                <View style={styles.pillWrap}>
+                  {YEARS_OPTIONS.map((opt) => {
+                    const selected = yearsExp === opt;
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.choicePill,
+                          selected && { backgroundColor: theme, borderColor: theme },
+                        ]}
+                        onPress={() => setYearsExp(selected ? '' : opt)}
+                        activeOpacity={0.85}
+                      >
+                        <Text
+                          style={[
+                            styles.choicePillText,
+                            selected && { color: '#FFFFFF' },
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Coverage postcode</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. PR1"
+                  placeholderTextColor="#6B7280"
+                  value={postcode}
+                  onChangeText={setPostcode}
+                  onBlur={() => setPostcode((p) => p.toUpperCase())}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Service radius: {radius} miles</Text>
+                <View style={styles.pillWrap}>
+                  {RADIUS_OPTIONS.map((opt) => {
+                    const selected = radius === opt.value;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.choicePill,
+                          selected && { backgroundColor: theme, borderColor: theme },
+                        ]}
+                        onPress={() => setRadius(opt.value)}
+                        activeOpacity={0.85}
+                      >
+                        <Text
+                          style={[
+                            styles.choicePillText,
+                            selected && { color: '#FFFFFF' },
+                          ]}
+                        >
+                          {opt.display}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Profile photo (optional)</Text>
+                <View style={styles.photoContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.photoPicker,
+                      photoUrl
+                        ? { borderStyle: 'solid', borderColor: theme }
+                        : { borderStyle: 'dashed', borderColor: '#6B7280' },
+                    ]}
+                    onPress={handlePhotoPick}
+                    disabled={photoUploading}
+                    activeOpacity={0.85}
+                  >
+                    {photoUploading ? (
+                      <ActivityIndicator color={theme} />
+                    ) : photoUrl ? (
+                      <Image
+                        source={{ uri: photoUrl }}
+                        style={styles.photoImage}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Text style={styles.photoEmoji}>📷</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {step >= 7 && (
             <View style={styles.placeholderContainer}>
-              <Text style={styles.heading}>Phase 2E-β-1 complete</Text>
+              <Text style={styles.heading}>Phase 2E-β-2 complete</Text>
               <Text style={styles.placeholderSubtext}>
-                Steps 5–7 coming in 2E-β-2 / γ.
+                Step 7 (final submit) coming in 2E-γ.
               </Text>
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: theme }]}
@@ -352,16 +622,16 @@ export default function Wizard() {
           )}
         </ScrollView>
 
-        {step === 4 && (
+        {(step === 4 || step === 5 || step === 6) && (
           <View style={styles.footer}>
             <TouchableOpacity
               style={[
                 styles.continueButton,
                 { backgroundColor: theme },
-                !canContinueStep4 && styles.continueButtonDisabled,
+                !canContinue && styles.continueButtonDisabled,
               ]}
-              onPress={handleContinueStep4}
-              disabled={!canContinueStep4}
+              onPress={handleContinue}
+              disabled={!canContinue}
               activeOpacity={0.85}
             >
               <Text style={styles.continueButtonText}>Continue</Text>
@@ -477,6 +747,72 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 15,
     marginTop: 16,
+  },
+  multilineInput: {
+    backgroundColor: '#111111',
+    color: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+  step5Subtext: {
+    color: '#6B7280',
+    fontSize: 14,
+    marginTop: -16,
+    marginBottom: 16,
+  },
+  choicePill: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  choicePillText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  fieldGroup: {
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#111111',
+    color: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+  },
+  photoContainer: {
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  photoPicker: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoEmoji: {
+    fontSize: 28,
   },
   footer: {
     paddingHorizontal: 24,
