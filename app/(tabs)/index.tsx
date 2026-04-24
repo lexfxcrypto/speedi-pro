@@ -459,7 +459,7 @@ export default function Home() {
   useEffect(() => {
     if (tlState === 'green') {
       updateLocation();
-      locationInterval.current = setInterval(updateLocation, 120000);
+      locationInterval.current = setInterval(updateLocation, 15000);
     } else if (locationInterval.current) {
       clearInterval(locationInterval.current);
       locationInterval.current = null;
