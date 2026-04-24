@@ -8,6 +8,7 @@ import {
   Animated,
   AppState,
   Image,
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -187,7 +188,14 @@ export default function Home() {
     const requestLocation = async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.log('Location permission denied');
+        Alert.alert(
+          'Location needed to go live',
+          'Speedi uses your location to show customers where you are on the map when you go live. Tap Settings to enable it.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
       }
     };
     requestLocation();
