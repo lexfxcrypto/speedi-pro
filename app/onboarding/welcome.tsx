@@ -12,8 +12,7 @@ export default function OnboardingWelcome() {
   const router = useRouter();
 
   const handleStart = () => {
-    // TODO Phase 2E: route to /onboarding/wizard
-    router.replace('/(tabs)');
+    router.replace('/onboarding/wizard');
   };
 
   return (
