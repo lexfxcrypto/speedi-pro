@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { PasswordInput } from '../components/PasswordInput';
 import { login } from '../lib/auth';
 
 export default function Login() {
@@ -65,13 +66,11 @@ export default function Login() {
             editable={!loading}
           />
 
-          <TextInput
-            style={styles.input}
+          <PasswordInput
             placeholder="Password"
             placeholderTextColor="#6B7280"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             editable={!loading}
           />
 
