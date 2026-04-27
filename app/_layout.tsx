@@ -115,6 +115,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="forgot-password" />
         <Stack.Screen name="register" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="quotes" />

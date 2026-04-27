@@ -74,6 +74,14 @@ export default function Login() {
             editable={!loading}
           />
 
+          <TouchableOpacity
+            style={styles.forgotLinkWrap}
+            onPress={() => router.push('/forgot-password')}
+            disabled={loading}
+          >
+            <Text style={styles.forgotLink}>Forgot password?</Text>
+          </TouchableOpacity>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <TouchableOpacity
@@ -88,8 +96,6 @@ export default function Login() {
               <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
-
-          <Text style={styles.helper}>Use your Speedi account credentials</Text>
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don&apos;t have an account? </Text>
@@ -160,11 +166,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  helper: {
-    color: '#6B7280',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 16,
+  forgotLinkWrap: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+  },
+  forgotLink: {
+    color: '#E64A19',
+    fontSize: 13,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
