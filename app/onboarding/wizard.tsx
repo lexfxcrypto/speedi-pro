@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -27,6 +28,7 @@ const API_BASE = 'https://www.speeditrades.com';
 type SignupIntent = 'sole_trader' | 'company_owner';
 type ProviderType = 'trade' | 'service' | 'sports';
 type PremisesMode = 'fixed' | 'mobile' | 'both';
+type LocationPermissionStatus = 'unasked' | 'granted' | 'denied';
 
 const TOTAL_STEPS = 7;
 
@@ -126,6 +128,8 @@ export default function Wizard() {
   const [goLive, setGoLive] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [locationPermissionStatus, setLocationPermissionStatus] =
+    useState<LocationPermissionStatus>('unasked');
 
   const theme = getTheme(providerType);
   const categoryOptions = getCategoryOptions(providerType);
@@ -178,6 +182,11 @@ export default function Wizard() {
 
   const handleBack = () => {
     setStep(previousStep(step, providerType));
+  };
+
+  const handleAskLocation = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    setLocationPermissionStatus(status === 'granted' ? 'granted' : 'denied');
   };
 
   const handlePhotoPick = async () => {
@@ -569,6 +578,34 @@ export default function Wizard() {
                 </View>
               </View>
 
+              <View style={styles.primerCard}>
+                <Text style={styles.primerTitle}>Why we need location</Text>
+                <Text style={styles.primerBody}>
+                  Your location helps customers find you when you&apos;re available. We
+                  only check your location when you&apos;re showing as available for work.
+                </Text>
+                {locationPermissionStatus === 'granted' ? (
+                  <View style={[styles.primerButton, styles.primerButtonGranted]}>
+                    <Text style={[styles.primerButtonText, { color: '#10B981' }]}>
+                      Location allowed ✓
+                    </Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.primerButton, { backgroundColor: theme }]}
+                    onPress={handleAskLocation}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.primerButtonText}>Allow location</Text>
+                  </TouchableOpacity>
+                )}
+                {locationPermissionStatus === 'denied' && (
+                  <Text style={styles.primerDenialNote}>
+                    You can enable later in your iPhone Settings.
+                  </Text>
+                )}
+              </View>
+
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Coverage postcode</Text>
                 <TextInput
@@ -948,5 +985,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 12,
+  },
+  primerCard: {
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    padding: 18,
+    marginBottom: 20,
+  },
+  primerTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  primerBody: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  primerButton: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  primerButtonGranted: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  primerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  primerDenialNote: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    marginTop: 10,
+    textAlign: 'center',
   },
 });
