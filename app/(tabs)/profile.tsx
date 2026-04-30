@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth, logout } from '../../lib/auth';
+import { getProviderNoun } from '../../lib/copy';
 
 const API = 'https://www.speeditrades.com';
 
@@ -156,7 +157,9 @@ export default function Profile() {
 
   const tradeLine =
     profile?.trade ||
-    (profile?.trades?.length ? profile.trades.join(' · ') : 'Tradesperson');
+    (profile?.trades?.length
+      ? profile.trades.join(' · ')
+      : getProviderNoun(profile, { titleCase: true }));
 
   const coverageLabel = profile?.coverageRadius ? `${profile.coverageRadius}mi radius` : null;
 

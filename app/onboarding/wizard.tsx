@@ -481,6 +481,10 @@ export default function Wizard() {
                   <View style={styles.pillWrap}>
                     {jobsForCategory.map((job) => {
                       const selected = selectedJobs.includes(job);
+                      const label =
+                        premisesMode === 'mobile' && job.startsWith('Mobile ')
+                          ? job.slice(7)
+                          : job;
                       return (
                         <TouchableOpacity
                           key={job}
@@ -497,7 +501,7 @@ export default function Wizard() {
                               selected && { color: '#FFFFFF' },
                             ]}
                           >
-                            {job}
+                            {label}
                           </Text>
                         </TouchableOpacity>
                       );

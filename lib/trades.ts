@@ -150,10 +150,20 @@ export const TRADE_CATEGORIES: Record<string, string[]> = {
     "Oven Cleaning",
     "Gutter Cleaning",
   ],
-  "Vehicle": [
-    "Mobile Car Wash",
-    "Mobile Mechanic",
+  "Mechanic": [
+    "MOT",
+    "Servicing",
+    "Diagnostics",
+    "Brakes",
+    "Clutch",
+    "Suspension",
+    "Exhaust",
+    "Tyres",
     "Mobile Tyre Fitting",
+    "Bodywork",
+    "Air Conditioning",
+    "Mobile Mechanic",
+    "Recovery & Towing",
   ],
   "Other": [
     "Asbestos Removal",

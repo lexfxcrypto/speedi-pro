@@ -142,17 +142,16 @@ export const SERVICE_CATEGORIES_LIST = [
   },
   {
     id: "mobileauto",
-    name: "Mobile Auto",
+    name: "Vehicle Care",
     emoji: "🚗",
     services: [
       "Mobile Valeting",
       "Full Valet",
-      "Mobile Tyre Fitting",
-      "Mobile Mechanic",
       "Car Wrapping",
       "Window Tinting",
       "Mobile Car Wash",
       "Windscreen Repair",
+      "Headlight Restoration",
     ],
   },
   {

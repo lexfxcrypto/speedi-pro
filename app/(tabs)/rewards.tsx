@@ -120,7 +120,7 @@ export default function Rewards() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>Refer a tradesperson</Text>
+          <Text style={styles.heroTitle}>Refer a pro</Text>
           <Text style={styles.heroSubtitle}>
             Share your code. When they sign up you both earn — you get 10% of every credit pack
             they buy for 6 months.

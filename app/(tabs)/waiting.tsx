@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
+import { getProviderNoun } from '../../lib/copy';
 
 const API = 'https://www.speeditrades.com';
 
@@ -161,7 +162,7 @@ export default function Waiting() {
               onPress: () => {
                 if (!customerPhone) return;
                 const message =
-                  `Hi ${customerName}, it's ${myProfile?.name || 'your tradesperson'} ` +
+                  `Hi ${customerName}, it's ${myProfile?.name || `your ${getProviderNoun(myProfile)}`} ` +
                   `from ${myProfile?.trade || 'Speedi'}. ` +
                   `I've seen your Speedi request and I'm able to help. ` +
                   `I'm free now and ready to come to you. ` +

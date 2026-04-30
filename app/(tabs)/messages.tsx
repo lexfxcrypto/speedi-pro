@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
+import { getProviderNoun } from '../../lib/copy';
 
 const API = 'https://www.speeditrades.com';
 
@@ -108,7 +109,7 @@ export default function Messages() {
   const promptDeclineReason = (msg: Message) => {
     Alert.alert(
       `Decline ${msg.otherUserName}'s request?`,
-      'Pick a reason — they\'ll get a notification so they can try another tradesperson.',
+      `Pick a reason — they'll get a notification so they can try another ${getProviderNoun(null)}.`,
       [
         {
           text: 'Wrong job type',
