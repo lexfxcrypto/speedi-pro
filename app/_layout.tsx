@@ -35,6 +35,19 @@ async function registerForPushNotifications() {
     const token = await Notifications.getExpoPushTokenAsync();
     console.log('Expo push token:', token.data);
     await SecureStore.setItemAsync('expo_push_token', token.data);
+
+    const authToken = await SecureStore.getItemAsync('auth_token');
+    if (authToken) {
+      fetch(`${API_BASE}/api/native/register-push`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pushToken: token.data }),
+      }).catch((e) => console.log('register-push failed:', e));
+    }
+
     return token.data;
   } catch (e) {
     console.log('Push registration failed:', e);
