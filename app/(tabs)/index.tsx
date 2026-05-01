@@ -167,6 +167,11 @@ export default function Home() {
     count: number;
     latest: { id: string; jobType: string } | null;
   } | null>(null);
+  const [waitingAlert, setWaitingAlert] = useState<{
+    count: number;
+    latestJobType: string | null;
+    latestDistance: number | null;
+  } | null>(null);
   const prevQuoteCount = useRef(0);
   const [jobsToday, setJobsToday] = useState(0);
   const [rating, setRating] = useState<number | null>(null);
@@ -293,6 +298,14 @@ export default function Home() {
         if (!Array.isArray(data)) return;
         if (data.length > prevRequestCount.current && prevRequestCount.current > 0) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          const newCount = data.length - prevRequestCount.current;
+          const latest = data[0] ?? null;
+          setWaitingAlert({
+            count: newCount,
+            latestJobType: latest?.jobType ?? null,
+            latestDistance:
+              typeof latest?.distanceMiles === 'number' ? latest.distanceMiles : null,
+          });
         }
         prevRequestCount.current = data.length;
         setWaitingCount(data.length);
@@ -617,6 +630,33 @@ export default function Home() {
             <Text style={styles.messageBannerTitle}>📋 New quote request</Text>
             <Text style={styles.messageBannerBody} numberOfLines={1}>
               {quoteAlert.latest?.jobType || 'Tap to view'} — tap to respond
+            </Text>
+          </View>
+          <Text style={styles.messageBannerArrow}>→</Text>
+        </TouchableOpacity>
+      )}
+
+      {waitingAlert && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            setWaitingAlert(null);
+            router.push('/(tabs)/waiting');
+          }}
+          style={styles.messageBanner}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.messageBannerTitle}>
+              {waitingAlert.count > 1
+                ? `🆕 ${waitingAlert.count} new waitlist jobs nearby`
+                : '🆕 New waitlist job nearby'}
+            </Text>
+            <Text style={styles.messageBannerBody} numberOfLines={1}>
+              {waitingAlert.latestJobType
+                ? waitingAlert.latestDistance != null
+                  ? `${waitingAlert.latestJobType} — ${waitingAlert.latestDistance.toFixed(1)} mi away`
+                  : waitingAlert.latestJobType
+                : 'Tap to view'}
             </Text>
           </View>
           <Text style={styles.messageBannerArrow}>→</Text>
