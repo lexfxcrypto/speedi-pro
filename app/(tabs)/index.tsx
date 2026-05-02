@@ -955,19 +955,20 @@ export default function Home() {
           />
         </View>
 
-        {(() => {
-          const display = getApprovedDisplay(approvedInfo);
-          return (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[styles.approvedCard, { borderLeftColor: display.borderColor }]}
-              onPress={() => Linking.openURL(display.deepLink)}
-            >
-              <Text style={styles.approvedTitle}>{display.title}</Text>
-              <Text style={styles.approvedSubtitle}>{display.subtitle}</Text>
-            </TouchableOpacity>
-          );
-        })()}
+        {!companyWorker &&
+          (() => {
+            const display = getApprovedDisplay(approvedInfo);
+            return (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.approvedCard, { borderLeftColor: display.borderColor }]}
+                onPress={() => Linking.openURL(display.deepLink)}
+              >
+                <Text style={styles.approvedTitle}>{display.title}</Text>
+                <Text style={styles.approvedSubtitle}>{display.subtitle}</Text>
+              </TouchableOpacity>
+            );
+          })()}
 
         {waitingCount > 0 && (
           <TouchableOpacity
