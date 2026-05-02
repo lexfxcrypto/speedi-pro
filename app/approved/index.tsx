@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { fetchWithAuth } from '../lib/auth';
+import { fetchWithAuth } from '../../lib/auth';
 
 const API = 'https://www.speeditrades.com';
 
@@ -163,6 +163,7 @@ function EnrolledView({
   cancelling: boolean;
   onCancel: () => void;
 }) {
+  const router = useRouter();
   const isVerified = approved.credentialsStatus === 'verified';
   const isActive = approved.status === 'active';
   const isCancelled = approved.status === 'cancelled';
@@ -222,10 +223,10 @@ function EnrolledView({
       {isActive && !isVerified ? (
         <TouchableOpacity
           style={styles.outlineButton}
-          onPress={() => Linking.openURL(`${API}/approved/credentials`)}
+          onPress={() => router.push('/approved/credentials')}
           activeOpacity={0.85}
         >
-          <Text style={styles.outlineButtonText}>Upload credentials on the web</Text>
+          <Text style={styles.outlineButtonText}>Upload credentials</Text>
         </TouchableOpacity>
       ) : null}
 
