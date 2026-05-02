@@ -1,8 +1,8 @@
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -257,49 +257,51 @@ export default function Home() {
   const pulse = useRef(new Animated.Value(0.3)).current;
   const livePulse = useRef(new Animated.Value(0.3)).current;
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const token = await SecureStore.getItemAsync('auth_token');
-        console.log('Token:', token ? 'present' : 'missing');
+  useFocusEffect(
+    useCallback(() => {
+      const loadUserData = async () => {
+        try {
+          const token = await SecureStore.getItemAsync('auth_token');
+          console.log('Token:', token ? 'present' : 'missing');
 
-        const res = await fetchWithAuth(`${API}/api/native/me`);
+          const res = await fetchWithAuth(`${API}/api/native/me`);
 
-        console.log('Status:', res.status);
-        const data = await res.json();
-        console.log('User data:', JSON.stringify(data));
+          console.log('Status:', res.status);
+          const data = await res.json();
+          console.log('User data:', JSON.stringify(data));
 
-        if (data.name) setUserName(data.name);
-        if (data.credits !== undefined) setCredits(data.credits);
-        if (data.availability) {
-          if (data.availability === 'AVAILABLE') setTlState('green');
-          if (data.availability === 'SOON') setTlState('amber');
-          if (data.availability === 'BUSY') setTlState('red');
-          if (data.availability === 'OFFLINE') setTlState('offline');
+          if (data.name) setUserName(data.name);
+          if (data.credits !== undefined) setCredits(data.credits);
+          if (data.availability) {
+            if (data.availability === 'AVAILABLE') setTlState('green');
+            if (data.availability === 'SOON') setTlState('amber');
+            if (data.availability === 'BUSY') setTlState('red');
+            if (data.availability === 'OFFLINE') setTlState('offline');
+          }
+          if (typeof data.availableForQuotes === 'boolean') {
+            setAvailableForQuotes(data.availableForQuotes);
+          }
+          if (data.quotesAvailableUntil) {
+            setQuotesUntil(data.quotesAvailableUntil);
+          } else {
+            setQuotesUntil(null);
+          }
+          if (data.ownedCompany) setOwnedCompany(data.ownedCompany);
+          if (data.companyWorker) setCompanyWorker(data.companyWorker);
+          setApprovedInfo({
+            tier: data.approvedTier ?? null,
+            status: data.approvedStatus ?? null,
+            credentialsStatus: data.credentialsStatus ?? null,
+            credentialsDeadline: data.credentialsDeadline ?? null,
+          });
+        } catch (e) {
+          console.log('Error loading user data:', e);
         }
-        if (typeof data.availableForQuotes === 'boolean') {
-          setAvailableForQuotes(data.availableForQuotes);
-        }
-        if (data.quotesAvailableUntil) {
-          setQuotesUntil(data.quotesAvailableUntil);
-        } else {
-          setQuotesUntil(null);
-        }
-        if (data.ownedCompany) setOwnedCompany(data.ownedCompany);
-        if (data.companyWorker) setCompanyWorker(data.companyWorker);
-        setApprovedInfo({
-          tier: data.approvedTier ?? null,
-          status: data.approvedStatus ?? null,
-          credentialsStatus: data.credentialsStatus ?? null,
-          credentialsDeadline: data.credentialsDeadline ?? null,
-        });
-      } catch (e) {
-        console.log('Error loading user data:', e);
-      }
-    };
+      };
 
-    loadUserData();
-  }, []);
+      loadUserData();
+    }, []),
+  );
 
   useEffect(() => {
     const loadCalendar = async () => {
