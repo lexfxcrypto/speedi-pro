@@ -10,7 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AddCredentialModal from '../../components/AddCredentialModal';
 import { fetchWithAuth, logout } from '../../lib/auth';
+import { getCertSuggestionsForTrade } from '../../lib/certifications';
 import { getProviderNoun } from '../../lib/copy';
 
 const API = 'https://www.speeditrades.com';
@@ -22,6 +24,7 @@ type Profile = {
   phone: string | null;
   trade: string | null;
   trades: string[];
+  categoryMain: string | null;
   bio: string | null;
   website: string | null;
   yearsExperience: number | null;
@@ -40,18 +43,27 @@ type Profile = {
   username: string | null;
 };
 
-type Cert = {
+type Credential = {
   id: string;
-  icon: string;
-  label: string;
-  status: 'verified' | 'pending';
+  type: string;
+  title: string;
+  issuedBy: string;
+  expiryDate: string | null;
+  verified: boolean;
+  createdAt: string;
 };
 
-const CERTS: Cert[] = [
-  { id: 'c1', icon: '📄', label: 'Gas Safe Certificate', status: 'verified' },
-  { id: 'c2', icon: '🛡️', label: 'Public Liability Insurance', status: 'verified' },
-  { id: 'c3', icon: '📋', label: 'OFTEC Registration', status: 'pending' },
-];
+const CRED_ICON: Record<string, string> = {
+  PUBLIC_LIABILITY: '🛡️',
+  EMPLOYERS_LIABILITY: '🛡️',
+  GAS_SAFE: '🔥',
+  NICEIC: '⚡',
+  NAPIT: '⚡',
+  CHAS: '✅',
+  CSCS: '🪪',
+  CHECKATRADE: '🏷️',
+  OTHER: '📄',
+};
 
 type SocialRow = { icon: string; label: string; url: string };
 
@@ -91,6 +103,18 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [company, setCompany] = useState<CompanyCtx | null>(null);
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [addModalVisible, setAddModalVisible] = useState(false);
+
+  const loadCredentials = async () => {
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/credentials`);
+      const data = await res.json();
+      if (Array.isArray(data?.credentials)) setCredentials(data.credentials);
+    } catch (e) {
+      console.log('Failed to load credentials:', e);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -105,6 +129,10 @@ export default function Profile() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    loadCredentials();
   }, []);
 
   useEffect(() => {
@@ -330,35 +358,38 @@ export default function Profile() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Certifications & Insurance</Text>
-            <TouchableOpacity>
-              <Text style={styles.actionText}>Upload</Text>
+            <TouchableOpacity onPress={() => setAddModalVisible(true)} activeOpacity={0.7}>
+              <Text style={styles.actionText}>+ Add</Text>
             </TouchableOpacity>
           </View>
-          {CERTS.map((cert) => (
-            <View key={cert.id} style={styles.certRow}>
-              <Text style={styles.certIcon}>{cert.icon}</Text>
-              <Text style={styles.certLabel}>{cert.label}</Text>
-              <View
-                style={[
-                  styles.statusPill,
-                  {
-                    backgroundColor: cert.status === 'verified' ? '#00C67A22' : '#F59E0B22',
-                  },
-                ]}
-              >
-                <Text
+          {credentials.length === 0 ? (
+            <Text style={styles.emptyText}>No credentials added yet.</Text>
+          ) : (
+            credentials.map((cert) => (
+              <View key={cert.id} style={styles.certRow}>
+                <Text style={styles.certIcon}>{CRED_ICON[cert.type] ?? '📄'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.certLabel}>{cert.title}</Text>
+                  <Text style={styles.certIssuer}>{cert.issuedBy}</Text>
+                </View>
+                <View
                   style={[
-                    styles.statusText,
-                    {
-                      color: cert.status === 'verified' ? '#00C67A' : '#F59E0B',
-                    },
+                    styles.statusPill,
+                    { backgroundColor: cert.verified ? '#00C67A22' : '#F59E0B22' },
                   ]}
                 >
-                  {cert.status === 'verified' ? '✓ Verified' : 'Pending'}
-                </Text>
+                  <Text
+                    style={[
+                      styles.statusText,
+                      { color: cert.verified ? '#00C67A' : '#F59E0B' },
+                    ]}
+                  >
+                    {cert.verified ? '✓ Verified' : 'Pending'}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
 
         <View style={styles.card}>
@@ -386,6 +417,16 @@ export default function Profile() {
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <AddCredentialModal
+        visible={addModalVisible}
+        onClose={() => setAddModalVisible(false)}
+        onSuccess={() => {
+          setAddModalVisible(false);
+          loadCredentials();
+        }}
+        suggestions={getCertSuggestionsForTrade(profile?.categoryMain ?? profile?.trade)}
+      />
     </SafeAreaView>
   );
 }
@@ -544,9 +585,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   certLabel: {
-    flex: 1,
     color: '#FFFFFF',
     fontSize: 14,
+  },
+  certIssuer: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  emptyText: {
+    color: '#6B7280',
+    fontSize: 13,
+    paddingVertical: 12,
+    textAlign: 'center',
   },
   statusPill: {
     paddingHorizontal: 10,
