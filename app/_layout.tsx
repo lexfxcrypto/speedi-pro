@@ -133,6 +133,7 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="quotes" />
         <Stack.Screen name="job-history" />
+        <Stack.Screen name="approved" />
       </Stack>
     </>
   );
