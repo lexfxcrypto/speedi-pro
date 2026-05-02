@@ -8,6 +8,7 @@ import {
   Animated,
   AppState,
   Image,
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -111,6 +112,73 @@ function greetingForNow(): string {
   return 'Good evening';
 }
 
+const APPROVED_BASE_URL = 'https://www.speeditrades.com';
+
+type ApprovedInfo = {
+  tier: string | null;
+  status: string | null;
+  credentialsStatus: string | null;
+  credentialsDeadline: string | null;
+};
+
+type ApprovedDisplay = {
+  title: string;
+  subtitle: string;
+  deepLink: string;
+  borderColor: string;
+};
+
+function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
+  const status = info?.status ?? null;
+  const credStatus = info?.credentialsStatus ?? null;
+  const tier = info?.tier ?? null;
+
+  if (status === 'active' && credStatus === 'verified') {
+    const tierLabel = tier === 'premises' ? 'Premises' : 'Mobile';
+    return {
+      title: '✅ Speedi Approved',
+      subtitle: `Active · ${tierLabel}`,
+      deepLink: `${APPROVED_BASE_URL}/dashboard/approved`,
+      borderColor: '#00C67A',
+    };
+  }
+
+  if (status === 'active') {
+    let subtitle = 'Upload your credentials to activate';
+    if (info?.credentialsDeadline) {
+      const d = new Date(info.credentialsDeadline);
+      if (!isNaN(d.getTime())) {
+        subtitle = `Upload credentials by ${d.toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+        })}`;
+      }
+    }
+    return {
+      title: '⏳ Speedi Approved — pending',
+      subtitle,
+      deepLink: `${APPROVED_BASE_URL}/approved/credentials`,
+      borderColor: '#F59E0B',
+    };
+  }
+
+  if (status === 'cancelled' || status === 'paused') {
+    return {
+      title: 'Speedi Approved',
+      subtitle: status === 'cancelled' ? 'Cancelled — re-enrol' : 'Paused — resume',
+      deepLink: `${APPROVED_BASE_URL}/approved`,
+      borderColor: '#6B7280',
+    };
+  }
+
+  return {
+    title: '👑 Get Speedi Approved',
+    subtitle: 'Verified badge + monthly credits',
+    deepLink: `${APPROVED_BASE_URL}/approved`,
+    borderColor: '#E64A19',
+  };
+}
+
 async function updateAvailability(state: Light) {
   try {
     const location = await Location.getCurrentPositionAsync({
@@ -184,6 +252,7 @@ export default function Home() {
   const [companyMessages, setCompanyMessages] = useState<CompanyMessage[]>([]);
   const [companyBannerMsg, setCompanyBannerMsg] = useState<CompanyMessage | null>(null);
   const prevCompanyMsgIds = useRef<Set<string>>(new Set());
+  const [approvedInfo, setApprovedInfo] = useState<ApprovedInfo | null>(null);
 
   const pulse = useRef(new Animated.Value(0.3)).current;
   const livePulse = useRef(new Animated.Value(0.3)).current;
@@ -218,6 +287,12 @@ export default function Home() {
         }
         if (data.ownedCompany) setOwnedCompany(data.ownedCompany);
         if (data.companyWorker) setCompanyWorker(data.companyWorker);
+        setApprovedInfo({
+          tier: data.approvedTier ?? null,
+          status: data.approvedStatus ?? null,
+          credentialsStatus: data.credentialsStatus ?? null,
+          credentialsDeadline: data.credentialsDeadline ?? null,
+        });
       } catch (e) {
         console.log('Error loading user data:', e);
       }
@@ -880,10 +955,19 @@ export default function Home() {
           />
         </View>
 
-        <View style={styles.approvedCard}>
-          <Text style={styles.approvedTitle}>✅ Speedi Approved</Text>
-          <Text style={styles.approvedSubtitle}>Active · Verified credentials</Text>
-        </View>
+        {(() => {
+          const display = getApprovedDisplay(approvedInfo);
+          return (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.approvedCard, { borderLeftColor: display.borderColor }]}
+              onPress={() => Linking.openURL(display.deepLink)}
+            >
+              <Text style={styles.approvedTitle}>{display.title}</Text>
+              <Text style={styles.approvedSubtitle}>{display.subtitle}</Text>
+            </TouchableOpacity>
+          );
+        })()}
 
         {waitingCount > 0 && (
           <TouchableOpacity
