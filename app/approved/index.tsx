@@ -144,11 +144,11 @@ function NotEnrolled() {
         </Text>
       </View>
       <TouchableOpacity
-        style={styles.outlineButton}
+        style={styles.primaryButton}
         onPress={() => Linking.openURL(`${API}/approved`)}
         activeOpacity={0.85}
       >
-        <Text style={styles.outlineButtonText}>Sign up on the web</Text>
+        <Text style={styles.primaryButtonText}>Sign up on the web</Text>
       </TouchableOpacity>
     </View>
   );
@@ -222,31 +222,31 @@ function EnrolledView({
 
       {isActive && !isVerified ? (
         <TouchableOpacity
-          style={styles.outlineButton}
+          style={styles.primaryButton}
           onPress={() => router.push('/approved/credentials')}
           activeOpacity={0.85}
         >
-          <Text style={styles.outlineButtonText}>Upload credentials</Text>
+          <Text style={styles.primaryButtonText}>Upload credentials</Text>
         </TouchableOpacity>
       ) : null}
 
       {isCancelled ? (
         <TouchableOpacity
-          style={styles.outlineButton}
+          style={styles.primaryButton}
           onPress={() => Linking.openURL(`${API}/approved`)}
           activeOpacity={0.85}
         >
-          <Text style={styles.outlineButtonText}>Re-enrol on the web</Text>
+          <Text style={styles.primaryButtonText}>Re-enrol on the web</Text>
         </TouchableOpacity>
       ) : null}
 
       {isPaused ? (
         <TouchableOpacity
-          style={styles.outlineButton}
+          style={styles.primaryButton}
           onPress={() => Linking.openURL(`${API}/approved`)}
           activeOpacity={0.85}
         >
-          <Text style={styles.outlineButtonText}>Resume on the web</Text>
+          <Text style={styles.primaryButtonText}>Resume on the web</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -363,17 +363,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  outlineButton: {
-    borderWidth: 1,
-    borderColor: '#E64A19',
+  primaryButton: {
+    backgroundColor: '#E64A19',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  outlineButtonText: {
-    color: '#E64A19',
+  primaryButtonText: {
+    color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   cancelButton: {
     borderWidth: 1,
@@ -381,6 +380,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    marginTop: 16,
   },
   cancelButtonDisabled: {
     opacity: 0.5,
