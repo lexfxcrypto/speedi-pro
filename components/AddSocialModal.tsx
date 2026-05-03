@@ -14,13 +14,23 @@ import { fetchWithAuth } from '../lib/auth';
 const API = 'https://www.speeditrades.com';
 const THEME = '#E64A19';
 
-type Platform = 'instagram' | 'facebook' | 'tiktok' | 'linkedin';
+type Platform =
+  | 'instagram'
+  | 'facebook'
+  | 'tiktok'
+  | 'linkedin'
+  | 'youtube'
+  | 'checkatrade'
+  | 'trustpilot';
 
 const PLATFORMS: { key: Platform; label: string; icon: string; placeholder: string }[] = [
   { key: 'instagram', label: 'Instagram', icon: '📸', placeholder: 'instagram.com/yourname' },
   { key: 'facebook', label: 'Facebook', icon: '📘', placeholder: 'facebook.com/yourpage' },
   { key: 'tiktok', label: 'TikTok', icon: '🎵', placeholder: 'tiktok.com/@yourname' },
   { key: 'linkedin', label: 'LinkedIn', icon: '💼', placeholder: 'linkedin.com/in/yourname' },
+  { key: 'youtube', label: 'YouTube', icon: '📺', placeholder: 'youtube.com/@yourchannel' },
+  { key: 'checkatrade', label: 'Checkatrade', icon: '🏷️', placeholder: 'checkatrade.com/your-profile' },
+  { key: 'trustpilot', label: 'Trustpilot', icon: '⭐', placeholder: 'trustpilot.com/review/yourbusiness' },
 ];
 
 type Props = {

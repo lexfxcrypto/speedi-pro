@@ -37,6 +37,7 @@ type Profile = {
   facebookUrl: string | null;
   tiktokUrl: string | null;
   linkedinUrl: string | null;
+  youtubeUrl: string | null;
   checkatradeUrl: string | null;
   trustpilotUrl: string | null;
   lat: number | null;
@@ -199,6 +200,9 @@ export default function Profile() {
     profile?.instagramUrl ? { icon: '📸', label: profile.instagramUrl, url: profile.instagramUrl } : null,
     profile?.tiktokUrl ? { icon: '🎵', label: profile.tiktokUrl, url: profile.tiktokUrl } : null,
     profile?.linkedinUrl ? { icon: '💼', label: profile.linkedinUrl, url: profile.linkedinUrl } : null,
+    profile?.youtubeUrl ? { icon: '📺', label: profile.youtubeUrl, url: profile.youtubeUrl } : null,
+    profile?.checkatradeUrl ? { icon: '🏷️', label: profile.checkatradeUrl, url: profile.checkatradeUrl } : null,
+    profile?.trustpilotUrl ? { icon: '⭐', label: profile.trustpilotUrl, url: profile.trustpilotUrl } : null,
   ].filter((s): s is SocialRow => s !== null);
 
   return (

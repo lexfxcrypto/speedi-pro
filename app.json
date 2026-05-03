@@ -16,8 +16,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Speedi uses your location to show customers where you are when you're available for work."
-      }
+        "NSLocationWhenInUseUsageDescription": "Speedi uses your location to show customers where you are when you're available for work.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.speeditrades.speedipro"
     },
     "android": {
       "adaptiveIcon": {
