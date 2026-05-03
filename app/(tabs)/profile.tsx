@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import AddCredentialModal from '../../components/AddCredentialModal';
+import AddSocialModal from '../../components/AddSocialModal';
 import { fetchWithAuth, logout } from '../../lib/auth';
 import { getCertSuggestionsForTrade } from '../../lib/certifications';
 import { getProviderNoun } from '../../lib/copy';
@@ -105,6 +106,7 @@ export default function Profile() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [socialModalVisible, setSocialModalVisible] = useState(false);
 
   const loadCredentials = async () => {
     try {
@@ -116,19 +118,20 @@ export default function Profile() {
     }
   };
 
+  const loadProfile = async () => {
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/profile`);
+      const data = await res.json();
+      setProfile(data);
+    } catch (e) {
+      console.log('Failed to load profile:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetchWithAuth(`${API}/api/native/profile`);
-        const data = await res.json();
-        setProfile(data);
-      } catch (e) {
-        console.log('Failed to load profile:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadProfile();
   }, []);
 
   useEffect(() => {
@@ -395,8 +398,8 @@ export default function Profile() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Social Links</Text>
-            <TouchableOpacity>
-              <Text style={styles.actionText}>Add</Text>
+            <TouchableOpacity onPress={() => setSocialModalVisible(true)} activeOpacity={0.7}>
+              <Text style={styles.actionText}>+ Add</Text>
             </TouchableOpacity>
           </View>
           {socials.length === 0 ? (
@@ -426,6 +429,15 @@ export default function Profile() {
           loadCredentials();
         }}
         suggestions={getCertSuggestionsForTrade(profile?.categoryMain ?? profile?.trade)}
+      />
+
+      <AddSocialModal
+        visible={socialModalVisible}
+        onClose={() => setSocialModalVisible(false)}
+        onSuccess={() => {
+          setSocialModalVisible(false);
+          loadProfile();
+        }}
       />
     </SafeAreaView>
   );
