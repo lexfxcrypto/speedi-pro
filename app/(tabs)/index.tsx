@@ -8,7 +8,6 @@ import {
   Animated,
   AppState,
   Image,
-  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -960,14 +959,11 @@ export default function Home() {
         {!companyWorker &&
           (() => {
             const display = getApprovedDisplay(approvedInfo);
-            const isEnrolled = approvedInfo?.status != null;
             return (
               <TouchableOpacity
                 activeOpacity={0.85}
                 style={[styles.approvedCard, { borderLeftColor: display.borderColor }]}
-                onPress={() =>
-                  isEnrolled ? router.push('/approved') : Linking.openURL(display.deepLink)
-                }
+                onPress={() => router.push('/approved')}
               >
                 <Text style={styles.approvedTitle}>{display.title}</Text>
                 <Text style={styles.approvedSubtitle}>{display.subtitle}</Text>

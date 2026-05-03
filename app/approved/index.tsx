@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Linking,
   SafeAreaView,
   ScrollView,
@@ -66,6 +68,13 @@ export default function Approved() {
 
   useEffect(() => {
     loadApproved();
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') loadApproved();
+    });
+    return () => sub.remove();
   }, []);
 
   const handleCancel = () => {
@@ -134,23 +143,105 @@ export default function Approved() {
 }
 
 function NotEnrolled() {
+  const [selectedTier, setSelectedTier] = useState<'mobile' | 'premises'>('mobile');
+
+  const handleOpenWeb = async () => {
+    await WebBrowser.openBrowserAsync(
+      `https://speedi.co.uk/approved?tier=${selectedTier}`,
+    );
+  };
+
   return (
-    <View style={styles.body}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>👑 Speedi Approved</Text>
-        <Text style={styles.cardBody}>
-          Verified providers stand out — more trust, more jobs. Sign up on the
-          web to choose a tier and upload your credentials.
-        </Text>
+    <ScrollView contentContainerStyle={styles.body}>
+      <View style={styles.heroBlock}>
+        <Text style={styles.heroEmoji}>👑</Text>
+        <Text style={styles.heroTitle}>Get Speedi Approved</Text>
+        <Text style={styles.heroSubtitle}>Verified providers get more jobs.</Text>
       </View>
+
+      <TierCard
+        selected={selectedTier === 'mobile'}
+        onSelect={() => setSelectedTier('mobile')}
+        title="👑 Speedi Approved Mobile"
+        body="Standard verified provider. Crown badge on your pin."
+        price="5 cr/mo"
+      />
+
+      <TierCard
+        selected={selectedTier === 'premises'}
+        onSelect={() => setSelectedTier('premises')}
+        title="👑 Speedi Approved Premises"
+        body="Fixed business address. Building pin with crown. Instant contact."
+        price="15 cr/mo"
+      />
+
+      <View style={styles.calloutCard}>
+        <Text style={styles.calloutHeader}>What you get</Text>
+        <Text style={styles.calloutLine}>👑 Gold crown badge on your map pin</Text>
+        <Text style={styles.calloutLine}>
+          ✓ &quot;Speedi Approved&quot; on your profile
+        </Text>
+        <Text style={styles.calloutLine}>📈 Higher placement in search results</Text>
+        <Text style={styles.calloutLine}>
+          14 days to upload credentials — badge active immediately
+        </Text>
+        {selectedTier === 'premises' ? (
+          <>
+            <Text style={styles.calloutLine}>
+              📞 Instant &quot;Call to book&quot; button visible on first tap
+            </Text>
+            <Text style={styles.calloutLine}>
+              🏢 Building pin with your business address
+            </Text>
+          </>
+        ) : null}
+      </View>
+
       <TouchableOpacity
         style={styles.primaryButton}
-        onPress={() => Linking.openURL(`${API}/approved`)}
+        onPress={handleOpenWeb}
         activeOpacity={0.85}
       >
-        <Text style={styles.primaryButtonText}>Sign up on the web</Text>
+        <Text style={styles.primaryButtonText}>Open speedi.co.uk</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
+  );
+}
+
+function TierCard({
+  selected,
+  onSelect,
+  title,
+  body,
+  price,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  title: string;
+  body: string;
+  price: string;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.tierCard, selected && styles.tierCardSelected]}
+      onPress={onSelect}
+      activeOpacity={0.85}
+    >
+      <View style={styles.tierHeaderRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.tierTitle}>{title}</Text>
+          <Text style={styles.tierBody}>{body}</Text>
+        </View>
+        <View style={styles.tierRightCol}>
+          <Text style={styles.tierPrice}>{price}</Text>
+          {selected ? (
+            <View style={styles.tierCheckBadge}>
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -389,5 +480,87 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 15,
     fontWeight: '600',
+  },
+  heroBlock: {
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  heroEmoji: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 14,
+  },
+  tierCard: {
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    padding: 16,
+  },
+  tierCardSelected: {
+    backgroundColor: '#E64A1916',
+    borderColor: '#E64A19',
+  },
+  tierHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  tierRightCol: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  tierTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  tierBody: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  tierPrice: {
+    color: '#E64A19',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  tierCheckBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E64A19',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calloutCard: {
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    padding: 16,
+    gap: 6,
+  },
+  calloutHeader: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  calloutLine: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 19,
   },
 });
