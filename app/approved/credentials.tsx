@@ -63,8 +63,13 @@ export default function ApprovedCredentials() {
         fetchWithAuth(`${API}/api/approved`),
         fetchWithAuth(`${API}/api/approved/documents`),
       ]);
+      console.log(
+        '[/approved/credentials] approved status:', approvedRes.status,
+        'docs status:', docsRes.status,
+      );
       const approvedData = await approvedRes.json();
       const docsData = await docsRes.json();
+      console.log('[/approved/credentials] approvedData:', JSON.stringify(approvedData));
       setTier(approvedData?.tier ?? null);
       if (Array.isArray(docsData?.documents)) setDocs(docsData.documents);
     } catch (e) {
