@@ -38,8 +38,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8fcd0031-bafa-4813-973e-f197039c9734"
+        "projectId": "2ecc8854-c724-469e-afa3-711f4f103122"
       }
-    }
+    },
+    "owner": "speeditrades"
   }
 }
