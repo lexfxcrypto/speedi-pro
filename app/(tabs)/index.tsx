@@ -782,7 +782,7 @@ export default function Home() {
           />
           <Text style={styles.greeting}>
             {greetingForNow()},{'\n'}
-            {userName || 'there'} 👋
+            {userName || 'there'}
           </Text>
         </View>
 
