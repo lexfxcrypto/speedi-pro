@@ -146,8 +146,13 @@ function NotEnrolled() {
   const [selectedTier, setSelectedTier] = useState<'mobile' | 'premises'>('mobile');
 
   const handleOpenWeb = async () => {
+    // Same domain as the rest of native (API_BASE in app/_layout.tsx etc).
+    // NextAuth session cookies are domain-scoped — using speedi.co.uk here
+    // means the user's session on speeditrades.com doesn't carry over and
+    // they hit the unauthorized redirect-to-login flow even when they're
+    // signed in elsewhere on the platform.
     await WebBrowser.openBrowserAsync(
-      `https://speedi.co.uk/approved?tier=${selectedTier}`,
+      `${API}/approved?tier=${selectedTier}`,
     );
   };
 
@@ -202,7 +207,7 @@ function NotEnrolled() {
         onPress={handleOpenWeb}
         activeOpacity={0.85}
       >
-        <Text style={styles.primaryButtonText}>Open speedi.co.uk</Text>
+        <Text style={styles.primaryButtonText}>Continue on the web</Text>
       </TouchableOpacity>
     </ScrollView>
   );
