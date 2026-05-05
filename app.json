@@ -14,9 +14,13 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
+      "buildNumber": "1",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Speedi uses your location to show customers where you are when you're available for work.",
+        "NSLocationWhenInUseUsageDescription": "Speedi uses your location to show nearby tradespeople and broadcast your availability when you're toggled live.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Speedi keeps your location updated while you're toggled available so customers see your accurate position. Location is only tracked while you're live — toggling offline stops all tracking.",
+        "NSCameraUsageDescription": "Speedi uses the camera to take profile photos and document your verified credentials.",
+        "NSPhotoLibraryUsageDescription": "Speedi accesses your photos to upload your profile picture and credential documents.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.speeditrades.speedipro"
