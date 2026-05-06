@@ -1,7 +1,10 @@
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   SafeAreaView,
   ScrollView,
   Share,
@@ -12,7 +15,8 @@ import {
 } from 'react-native';
 import AddCredentialModal from '../../components/AddCredentialModal';
 import AddSocialModal from '../../components/AddSocialModal';
-import { fetchWithAuth, logout } from '../../lib/auth';
+import EditBusinessModal from '../../components/EditBusinessModal';
+import { fetchWithAuth, getToken, logout } from '../../lib/auth';
 import { getCertSuggestionsForTrade } from '../../lib/certifications';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_COMPANIES } from '../../lib/featureFlags';
@@ -109,6 +113,9 @@ export default function Profile() {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [socialModalVisible, setSocialModalVisible] = useState(false);
+  const [editBusinessVisible, setEditBusinessVisible] = useState(false);
+  const [photos, setPhotos] = useState<{ id: string; url: string }[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const loadCredentials = async () => {
     try {
@@ -132,12 +139,101 @@ export default function Profile() {
     }
   };
 
+  const loadPhotos = async () => {
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/portfolio`);
+      const data = await res.json();
+      if (Array.isArray(data)) setPhotos(data);
+    } catch (e) {
+      console.log('Failed to load portfolio:', e);
+    }
+  };
+
+  const handleAddPhoto = async () => {
+    if (photos.length >= 8) {
+      Alert.alert('Portfolio full', 'You can have up to 8 photos. Delete one to add another.');
+      return;
+    }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo access to upload portfolio photos.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+
+    setUploadingPhoto(true);
+    try {
+      const asset = result.assets[0];
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        name: 'portfolio.jpg',
+        type: 'image/jpeg',
+      } as unknown as Blob);
+
+      const token = await getToken();
+      const uploadRes = await fetch(`${API}/api/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!uploadRes.ok) throw new Error(`Upload failed (${uploadRes.status})`);
+      const { url } = await uploadRes.json();
+
+      const saveRes = await fetchWithAuth(`${API}/api/native/portfolio`, {
+        method: 'POST',
+        body: JSON.stringify({ url, caption: '' }),
+      });
+      if (!saveRes.ok) {
+        const d = await saveRes.json().catch(() => ({}));
+        throw new Error(d.error || 'Could not save photo');
+      }
+      const photo = await saveRes.json();
+      setPhotos((prev) => [photo, ...prev]);
+    } catch (err) {
+      Alert.alert('Upload failed', err instanceof Error ? err.message : 'Try again');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = (id: string) => {
+    Alert.alert('Remove photo?', 'This will delete it from your portfolio.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await fetchWithAuth(`${API}/api/native/portfolio`, {
+              method: 'DELETE',
+              body: JSON.stringify({ id }),
+            });
+            setPhotos((prev) => prev.filter((p) => p.id !== id));
+          } catch (e) {
+            console.log('Failed to remove photo:', e);
+          }
+        },
+      },
+    ]);
+  };
+
   useEffect(() => {
     loadProfile();
   }, []);
 
   useEffect(() => {
     loadCredentials();
+  }, []);
+
+  useEffect(() => {
+    loadPhotos();
   }, []);
 
   useEffect(() => {
@@ -326,11 +422,20 @@ export default function Profile() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Business Details</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => setEditBusinessVisible(true)} activeOpacity={0.7}>
               <Text style={styles.actionText}>Edit</Text>
             </TouchableOpacity>
           </View>
           <DetailRow icon="🏢" label="Trading Name" value={profile?.name || '—'} />
+          <DetailRow
+            icon="🛠️"
+            label="Services"
+            value={
+              profile?.trades && profile.trades.length > 0
+                ? profile.trades.join(' · ')
+                : profile?.trade || '—'
+            }
+          />
           <DetailRow
             icon="📍"
             label="Coverage"
@@ -345,22 +450,48 @@ export default function Profile() {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Portfolio</Text>
-            <TouchableOpacity>
-              <Text style={styles.actionText}>Add photo</Text>
+            <Text style={styles.cardTitle}>Portfolio ({photos.length}/8)</Text>
+            <TouchableOpacity
+              onPress={handleAddPhoto}
+              disabled={uploadingPhoto || photos.length >= 8}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.actionText,
+                  (uploadingPhoto || photos.length >= 8) && { opacity: 0.5 },
+                ]}
+              >
+                {uploadingPhoto ? 'Uploading…' : '+ Add photo'}
+              </Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.portfolioRow}>
-            <View style={styles.portfolioBox}>
-              <Text style={styles.portfolioEmoji}>🚿</Text>
+          {photos.length === 0 ? (
+            <Text style={styles.emptyText}>
+              No photos yet. Tap Add photo to show customers your work.
+            </Text>
+          ) : (
+            <View style={styles.portfolioGrid}>
+              {photos.map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={styles.portfolioPhoto}
+                  onLongPress={() => handleRemovePhoto(p.id)}
+                  delayLongPress={350}
+                  activeOpacity={0.85}
+                >
+                  <Image source={{ uri: p.url }} style={styles.portfolioImg} />
+                  <TouchableOpacity
+                    style={styles.portfolioRemove}
+                    onPress={() => handleRemovePhoto(p.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.portfolioRemoveText}>✕</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
             </View>
-            <View style={styles.portfolioBox}>
-              <Text style={styles.portfolioEmoji}>🔧</Text>
-            </View>
-            <View style={[styles.portfolioBox, styles.portfolioBoxEmpty]}>
-              <Text style={styles.portfolioPlus}>+</Text>
-            </View>
-          </View>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -441,6 +572,16 @@ export default function Profile() {
         onClose={() => setSocialModalVisible(false)}
         onSuccess={() => {
           setSocialModalVisible(false);
+          loadProfile();
+        }}
+      />
+
+      <EditBusinessModal
+        visible={editBusinessVisible}
+        initial={profile}
+        onClose={() => setEditBusinessVisible(false)}
+        onSuccess={() => {
+          setEditBusinessVisible(false);
           loadProfile();
         }}
       />
@@ -564,32 +705,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
-  portfolioRow: {
+  portfolioGrid: {
     flexDirection: 'row',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  portfolioBox: {
-    flex: 1,
+  portfolioPhoto: {
+    width: '31.5%',
     aspectRatio: 1,
-    backgroundColor: '#1C1C1C',
     borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1C',
+    position: 'relative',
+  },
+  portfolioImg: { width: '100%', height: '100%' },
+  portfolioRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.65)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  portfolioBoxEmpty: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: '#3A3A3A',
-  },
-  portfolioEmoji: {
-    fontSize: 32,
-  },
-  portfolioPlus: {
-    fontSize: 28,
-    color: '#6B7280',
-    fontWeight: '300',
-  },
+  portfolioRemoveText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   certRow: {
     flexDirection: 'row',
     alignItems: 'center',
