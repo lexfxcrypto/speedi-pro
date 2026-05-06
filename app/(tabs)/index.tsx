@@ -229,6 +229,11 @@ export default function Home() {
   } | null>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const prevRequestCount = useRef(0);
+  // Track whether the first poll has run, so banners fire on count increase
+  // even when the prior count was 0 (the original `prev > 0` guard suppressed
+  // the most common case: empty queue → first request lands while app open).
+  const requestsLoadedRef = useRef(false);
+  const quotesLoadedRef = useRef(false);
   const [waitingCount, setWaitingCount] = useState(0);
   const [quoteAlert, setQuoteAlert] = useState<{
     count: number;
@@ -354,7 +359,7 @@ export default function Home() {
         const res = await fetchWithAuth(`${API}/api/native/quotes`);
         const data = await res.json();
         const count = typeof data?.unreadCount === 'number' ? data.unreadCount : 0;
-        if (count > prevQuoteCount.current && prevQuoteCount.current > 0) {
+        if (quotesLoadedRef.current && count > prevQuoteCount.current) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           setQuoteAlert({
             count,
@@ -362,6 +367,7 @@ export default function Home() {
           });
         }
         prevQuoteCount.current = count;
+        quotesLoadedRef.current = true;
       } catch (e) {
         console.log('Quote check failed:', e);
       }
@@ -372,7 +378,7 @@ export default function Home() {
         const res = await fetchWithAuth(`${API}/api/native/waiting-requests`);
         const data = await res.json();
         if (!Array.isArray(data)) return;
-        if (data.length > prevRequestCount.current && prevRequestCount.current > 0) {
+        if (requestsLoadedRef.current && data.length > prevRequestCount.current) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           const newCount = data.length - prevRequestCount.current;
           const latest = data[0] ?? null;
@@ -384,6 +390,7 @@ export default function Home() {
           });
         }
         prevRequestCount.current = data.length;
+        requestsLoadedRef.current = true;
         setWaitingCount(data.length);
       } catch (e) {
         console.log('Request check failed:', e);
@@ -661,109 +668,6 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {messageAlert && (
-        <View style={styles.messageBanner}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.messageBannerTitle}>
-              💬 New message from {messageAlert.otherUserName}
-            </Text>
-            <Text style={styles.messageBannerBody} numberOfLines={1}>
-              {messageAlert.lastMessage?.substring(0, 50)}
-              {messageAlert.lastMessage && messageAlert.lastMessage.length > 50 ? '…' : ''}
-            </Text>
-          </View>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              setMessageAlert(null);
-              router.push('/(tabs)/messages');
-            }}
-            style={styles.bannerReplyBtn}
-          >
-            <Text style={styles.bannerReplyText}>Reply</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setMessageAlert(null)}
-            style={styles.bannerDismissBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.bannerDismissText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {quoteAlert && (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            setQuoteAlert(null);
-            router.push('/(tabs)/messages');
-          }}
-          style={styles.messageBanner}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.messageBannerTitle}>📋 New quote request</Text>
-            <Text style={styles.messageBannerBody} numberOfLines={1}>
-              {quoteAlert.latest?.jobType || 'Tap to view'} — tap to respond
-            </Text>
-          </View>
-          <Text style={styles.messageBannerArrow}>→</Text>
-        </TouchableOpacity>
-      )}
-
-      {waitingAlert && (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            setWaitingAlert(null);
-            router.push('/(tabs)/waiting');
-          }}
-          style={styles.messageBanner}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.messageBannerTitle}>
-              {waitingAlert.count > 1
-                ? `🆕 ${waitingAlert.count} new waitlist jobs nearby`
-                : '🆕 New waitlist job nearby'}
-            </Text>
-            <Text style={styles.messageBannerBody} numberOfLines={1}>
-              {waitingAlert.latestJobType
-                ? waitingAlert.latestDistance != null
-                  ? `${waitingAlert.latestJobType} — ${waitingAlert.latestDistance.toFixed(1)} mi away`
-                  : waitingAlert.latestJobType
-                : 'Tap to view'}
-            </Text>
-          </View>
-          <Text style={styles.messageBannerArrow}>→</Text>
-        </TouchableOpacity>
-      )}
-
-      {companyBannerMsg && (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            setCompanyBannerMsg(null);
-            /* scroll to inbox */
-          }}
-          style={styles.messageBanner}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.messageBannerTitle}>
-              📨 New company message
-              {companyBannerMsg.intendedReceiver?.name
-                ? ` for ${companyBannerMsg.intendedReceiver.name}`
-                : ''}
-            </Text>
-            <Text style={styles.messageBannerBody} numberOfLines={1}>
-              {companyBannerMsg.sender.name ?? 'Someone'} —{' '}
-              {companyBannerMsg.content?.substring(0, 60)}
-            </Text>
-          </View>
-          <Text style={styles.messageBannerArrow}>→</Text>
-        </TouchableOpacity>
-      )}
-
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -791,6 +695,109 @@ export default function Home() {
           {renderLight('amber', '#F59E0B')}
           {renderLight('green', '#00C67A')}
         </View>
+
+        {messageAlert && (
+          <View style={styles.messageBanner}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.messageBannerTitle}>
+                💬 New message from {messageAlert.otherUserName}
+              </Text>
+              <Text style={styles.messageBannerBody} numberOfLines={1}>
+                {messageAlert.lastMessage?.substring(0, 50)}
+                {messageAlert.lastMessage && messageAlert.lastMessage.length > 50 ? '…' : ''}
+              </Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setMessageAlert(null);
+                router.push('/(tabs)/messages');
+              }}
+              style={styles.bannerReplyBtn}
+            >
+              <Text style={styles.bannerReplyText}>Reply</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setMessageAlert(null)}
+              style={styles.bannerDismissBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.bannerDismissText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {quoteAlert && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => {
+              setQuoteAlert(null);
+              router.push('/(tabs)/messages');
+            }}
+            style={styles.messageBanner}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.messageBannerTitle}>📋 New quote request</Text>
+              <Text style={styles.messageBannerBody} numberOfLines={1}>
+                {quoteAlert.latest?.jobType || 'Tap to view'} — tap to respond
+              </Text>
+            </View>
+            <Text style={styles.messageBannerArrow}>→</Text>
+          </TouchableOpacity>
+        )}
+
+        {waitingAlert && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => {
+              setWaitingAlert(null);
+              router.push('/(tabs)/waiting');
+            }}
+            style={styles.messageBanner}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.messageBannerTitle}>
+                {waitingAlert.count > 1
+                  ? `🆕 ${waitingAlert.count} new waitlist jobs nearby`
+                  : '🆕 New waitlist job nearby'}
+              </Text>
+              <Text style={styles.messageBannerBody} numberOfLines={1}>
+                {waitingAlert.latestJobType
+                  ? waitingAlert.latestDistance != null
+                    ? `${waitingAlert.latestJobType} — ${waitingAlert.latestDistance.toFixed(1)} mi away`
+                    : waitingAlert.latestJobType
+                  : 'Tap to view'}
+              </Text>
+            </View>
+            <Text style={styles.messageBannerArrow}>→</Text>
+          </TouchableOpacity>
+        )}
+
+        {companyBannerMsg && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => {
+              setCompanyBannerMsg(null);
+              /* scroll to inbox */
+            }}
+            style={styles.messageBanner}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.messageBannerTitle}>
+                📨 New company message
+                {companyBannerMsg.intendedReceiver?.name
+                  ? ` for ${companyBannerMsg.intendedReceiver.name}`
+                  : ''}
+              </Text>
+              <Text style={styles.messageBannerBody} numberOfLines={1}>
+                {companyBannerMsg.sender.name ?? 'Someone'} —{' '}
+                {companyBannerMsg.content?.substring(0, 60)}
+              </Text>
+            </View>
+            <Text style={styles.messageBannerArrow}>→</Text>
+          </TouchableOpacity>
+        )}
 
         <Text style={[styles.statusText, { color: activeColor }]}>{STATUS_TEXT[tlState]}</Text>
 
