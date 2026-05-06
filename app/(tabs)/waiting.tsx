@@ -179,8 +179,14 @@ export default function Waiting() {
       } else if (data.code === 'NO_CREDITS') {
         Alert.alert(
           'Not enough credits',
-          'You need at least 1 credit to accept a job. Top up in the Rewards tab.',
-          [{ text: 'OK' }],
+          'You need at least 1 credit to accept a job.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Buy credits',
+              onPress: () => Linking.openURL(`${API}/dashboard?buy=1`),
+            },
+          ],
         );
       } else {
         Alert.alert('Error', 'Could not accept job. Try again.');
