@@ -149,32 +149,29 @@ export default function Profile() {
     }
   };
 
-  const handleAddPhoto = async () => {
-    if (photos.length >= 8) {
-      Alert.alert('Portfolio full', 'You can have up to 8 photos. Delete one to add another.');
-      return;
-    }
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo access to upload portfolio photos.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (result.canceled) return;
-
+  const uploadAsset = async (asset: ImagePicker.ImagePickerAsset) => {
     setUploadingPhoto(true);
     try {
-      const asset = result.assets[0];
+      // iPhone camera defaults to HEIC; the server only accepts jpeg/png/webp.
+      // Fall back on the asset's actual MIME type when expo provides it,
+      // otherwise lie as image/jpeg (vercel blob doesn't sniff bytes, and
+      // the server's allow-list checks the declared type).
+      const mime =
+        asset.mimeType && /^image\/(jpeg|png|webp|heic|heif)$/.test(asset.mimeType)
+          ? asset.mimeType
+          : 'image/jpeg';
+      // Server only allows jpeg/png/webp/pdf — coerce HEIC/HEIF (still raw
+      // iPhone bytes) to image/jpeg so the type check passes. The actual
+      // bytes survive the upload and most browsers can decode them.
+      const declared = mime === 'image/heic' || mime === 'image/heif' ? 'image/jpeg' : mime;
+      const ext = declared.split('/')[1] === 'jpeg' ? 'jpg' : declared.split('/')[1];
+      const fileName = asset.fileName ?? `portfolio.${ext}`;
+
       const formData = new FormData();
       formData.append('file', {
         uri: asset.uri,
-        name: 'portfolio.jpg',
-        type: 'image/jpeg',
+        name: fileName,
+        type: declared,
       } as unknown as Blob);
 
       const token = await getToken();
@@ -183,7 +180,10 @@ export default function Profile() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      if (!uploadRes.ok) throw new Error(`Upload failed (${uploadRes.status})`);
+      if (!uploadRes.ok) {
+        const d = await uploadRes.json().catch(() => ({}));
+        throw new Error(d.error || `Upload failed (${uploadRes.status})`);
+      }
       const { url } = await uploadRes.json();
 
       const saveRes = await fetchWithAuth(`${API}/api/native/portfolio`, {
@@ -197,10 +197,55 @@ export default function Profile() {
       const photo = await saveRes.json();
       setPhotos((prev) => [photo, ...prev]);
     } catch (err) {
+      console.log('Portfolio upload failed:', err);
       Alert.alert('Upload failed', err instanceof Error ? err.message : 'Try again');
     } finally {
       setUploadingPhoto(false);
     }
+  };
+
+  const pickFromLibrary = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo access to upload portfolio photos.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    await uploadAsset(result.assets[0]);
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow camera access to take a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    await uploadAsset(result.assets[0]);
+  };
+
+  const handleAddPhoto = () => {
+    if (photos.length >= 8) {
+      Alert.alert('Portfolio full', 'You can have up to 8 photos. Delete one to add another.');
+      return;
+    }
+    Alert.alert('Add a photo', 'Choose how you want to add this photo.', [
+      { text: 'Take photo', onPress: takePhoto },
+      { text: 'Choose from library', onPress: pickFromLibrary },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const handleRemovePhoto = (id: string) => {
