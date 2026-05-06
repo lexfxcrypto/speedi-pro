@@ -21,13 +21,26 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const canSubmit = !!name && !!email && !!phoneNumber && !!password && !loading;
+  const passwordsMatch = password === confirmPassword;
+  const canSubmit =
+    !!name &&
+    !!email &&
+    !!phoneNumber &&
+    !!password &&
+    !!confirmPassword &&
+    passwordsMatch &&
+    !loading;
 
   const handleCreate = async () => {
     setError('');
+    if (!passwordsMatch) {
+      setError("Passwords don't match");
+      return;
+    }
     setLoading(true);
     try {
       const result = await register({
@@ -103,6 +116,18 @@ export default function Register() {
             onChangeText={setPassword}
             editable={!loading}
           />
+
+          <PasswordInput
+            placeholder="Confirm password"
+            placeholderTextColor="#6B7280"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            editable={!loading}
+          />
+
+          {confirmPassword.length > 0 && !passwordsMatch && (
+            <Text style={styles.error}>Passwords don&apos;t match</Text>
+          )}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
