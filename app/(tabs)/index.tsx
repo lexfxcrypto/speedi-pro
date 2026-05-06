@@ -261,6 +261,17 @@ export default function Home() {
   const pulse = useRef(new Animated.Value(0.3)).current;
   const livePulse = useRef(new Animated.Value(0.3)).current;
 
+  // Force server-side availability to OFFLINE on cold start so the customer
+  // map matches the local "all lights off" visual. Without this, a pro who
+  // killed the app while green would still appear on the map until they
+  // manually went offline.
+  useEffect(() => {
+    fetchWithAuth(`${API}/api/native/availability`, {
+      method: 'POST',
+      body: JSON.stringify({ availability: 'OFFLINE' }),
+    }).catch((e) => console.log('cold-start offline failed', e));
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       const loadUserData = async () => {
@@ -276,12 +287,10 @@ export default function Home() {
 
           if (data.name) setUserName(data.name);
           if (data.credits !== undefined) setCredits(data.credits);
-          if (data.availability) {
-            if (data.availability === 'AVAILABLE') setTlState('green');
-            if (data.availability === 'SOON') setTlState('amber');
-            if (data.availability === 'BUSY') setTlState('red');
-            if (data.availability === 'OFFLINE') setTlState('offline');
-          }
+          // Intentionally do NOT restore tlState from server: every app open
+          // starts with all lights off so the user must consciously tap a
+          // light to go on the map. (See sibling useEffect that also forces
+          // the server to OFFLINE on mount to keep the two in sync.)
           if (typeof data.availableForQuotes === 'boolean') {
             setAvailableForQuotes(data.availableForQuotes);
           }
