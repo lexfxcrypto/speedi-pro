@@ -19,6 +19,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth, getToken } from '../../lib/auth';
+import { SHOW_COMPANIES } from '../../lib/featureFlags';
 import { SERVICE_CATEGORIES, SERVICE_CATEGORIES_LIST } from '../../lib/services';
 import { SPORTS_CATEGORIES } from '../../lib/sports';
 import { TRADE_CATEGORIES } from '../../lib/trades';
@@ -109,8 +110,10 @@ function getJobsForCategory(pt: ProviderType | null, cat: string | null): string
 
 export default function Wizard() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [signupIntent, setSignupIntent] = useState<SignupIntent | null>(null);
+  const [step, setStep] = useState(SHOW_COMPANIES ? 1 : 2);
+  const [signupIntent, setSignupIntent] = useState<SignupIntent | null>(
+    SHOW_COMPANIES ? null : 'sole_trader',
+  );
   const [providerType, setProviderType] = useState<ProviderType | null>(null);
   const [premisesMode, setPremisesMode] = useState<PremisesMode | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -314,7 +317,7 @@ export default function Wizard() {
           ))}
         </View>
 
-        {step >= 2 ? (
+        {step >= (SHOW_COMPANIES ? 2 : 3) ? (
           <TouchableOpacity
             style={styles.backButton}
             onPress={handleBack}

@@ -15,6 +15,7 @@ import AddSocialModal from '../../components/AddSocialModal';
 import { fetchWithAuth, logout } from '../../lib/auth';
 import { getCertSuggestionsForTrade } from '../../lib/certifications';
 import { getProviderNoun } from '../../lib/copy';
+import { SHOW_COMPANIES } from '../../lib/featureFlags';
 
 const API = 'https://www.speeditrades.com';
 
@@ -239,7 +240,7 @@ export default function Profile() {
           </View>
         </View>
 
-        {company && (
+        {SHOW_COMPANIES && company && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>🏢 {company.name}</Text>

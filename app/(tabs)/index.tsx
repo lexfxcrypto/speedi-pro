@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth, logout } from '../../lib/auth';
+import { SHOW_COMPANIES } from '../../lib/featureFlags';
 
 const API = 'https://www.speeditrades.com';
 
@@ -463,6 +464,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!SHOW_COMPANIES) return;
     const hasCompanyContext =
       !!ownedCompany ||
       (!!companyWorker && companyWorker.messageMode === 'dispatcher');
@@ -783,7 +785,7 @@ export default function Home() {
           </TouchableOpacity>
         )}
 
-        {companyBannerMsg && (
+        {SHOW_COMPANIES && companyBannerMsg && (
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => {
@@ -903,7 +905,8 @@ export default function Home() {
           </View>
         </View>
 
-        {(ownedCompany || companyWorker?.messageMode === 'dispatcher') &&
+        {SHOW_COMPANIES &&
+          (ownedCompany || companyWorker?.messageMode === 'dispatcher') &&
           companyMessages.length > 0 && (
             <View style={styles.companyInbox}>
               <View style={styles.companyInboxHeader}>
@@ -972,7 +975,7 @@ export default function Home() {
           />
         </View>
 
-        {!companyWorker &&
+        {(!SHOW_COMPANIES || !companyWorker) &&
           (() => {
             const display = getApprovedDisplay(approvedInfo);
             return (
