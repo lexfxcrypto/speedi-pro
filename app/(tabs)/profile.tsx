@@ -308,6 +308,54 @@ export default function Profile() {
     router.replace('/login');
   };
 
+  // Account deletion — required by Apple App Store Guideline 5.1.1(v).
+  // Two confirmations: first explains what happens, second is a destructive
+  // tap-to-confirm. On success, clear local auth and route to /login.
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete account?',
+      'This will permanently remove your Speedi account, profile, portfolio and credentials. Customers will no longer see you on the map. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you sure?',
+              "Last chance — once deleted, your account can't be recovered.",
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const res = await fetchWithAuth(`${API}/api/native/account`, {
+                        method: 'DELETE',
+                      });
+                      if (!res.ok) {
+                        const d = await res.json().catch(() => ({}));
+                        throw new Error(d.error || 'Could not delete account');
+                      }
+                      await logout();
+                      router.replace('/login');
+                    } catch (e) {
+                      Alert.alert(
+                        'Delete failed',
+                        e instanceof Error ? e.message : 'Try again or contact support.',
+                      );
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  };
+
   const handleShareInvite = async () => {
     if (!company) return;
     const url = `${API}/invite/${company.inviteCode}`;
@@ -600,6 +648,14 @@ export default function Profile() {
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.deleteAccountBtn}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <AddCredentialModal
@@ -846,6 +902,20 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 15,
     fontWeight: '600',
+  },
+  deleteAccountBtn: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 32,
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  deleteAccountText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
   creditBlock: {
     flexDirection: 'row',
