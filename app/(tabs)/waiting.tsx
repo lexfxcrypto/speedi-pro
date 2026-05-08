@@ -179,14 +179,8 @@ export default function Waiting() {
       } else if (data.code === 'NO_CREDITS') {
         Alert.alert(
           'Not enough credits',
-          'You need at least 1 credit to accept a job.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Buy credits',
-              onPress: () => Linking.openURL(`${API}/dashboard?buy=1`),
-            },
-          ],
+          'You need at least 1 credit to accept a job. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
+          [{ text: 'OK' }],
         );
       } else {
         Alert.alert('Error', 'Could not accept job. Try again.');

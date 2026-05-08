@@ -946,12 +946,9 @@ export default function Home() {
         <View style={styles.buyCreditsCard}>
           <Text style={styles.buyIcon}>💳</Text>
           <Text style={styles.buyLabel}>{credits} credits remaining</Text>
-          <TouchableOpacity
-            style={styles.topUpBtn}
-            onPress={() => Alert.alert('Buy Credits', 'Credit packs coming soon')}
-          >
-            <Text style={styles.topUpText}>Top up</Text>
-          </TouchableOpacity>
+          <Text style={styles.creditsHint}>
+            Manage on speedi.co.uk
+          </Text>
         </View>
 
         <View style={styles.quotesCard}>
@@ -1284,16 +1281,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  topUpBtn: {
-    backgroundColor: '#E64A19',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  topUpText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+  creditsHint: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '500',
   },
   quotesCard: {
     flexDirection: 'row',

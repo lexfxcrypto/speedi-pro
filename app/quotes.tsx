@@ -113,14 +113,8 @@ export default function Quotes() {
       } else if (data.code === 'NO_CREDITS') {
         Alert.alert(
           'Not enough credits',
-          'You need at least 1 credit to respond to a quote.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Buy credits',
-              onPress: () => Linking.openURL(`${API}/dashboard?buy=1`),
-            },
-          ],
+          'You need at least 1 credit to respond to a quote. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
+          [{ text: 'OK' }],
         );
       } else if (data.code === 'CLOSED') {
         Alert.alert('Quote closed', 'This quote is no longer accepting responses.', [

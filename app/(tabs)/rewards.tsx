@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   SafeAreaView,
   ScrollView,
   Share,
@@ -100,14 +99,6 @@ export default function Rewards() {
     }
   };
 
-  const handleBuyCredits = async () => {
-    try {
-      await Linking.openURL('https://www.speeditrades.com/dashboard');
-    } catch (e) {
-      console.log('Open URL failed:', e);
-    }
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={[styles.safe, styles.loading]}>
@@ -189,9 +180,13 @@ export default function Rewards() {
           )}
         </View>
 
-        <TouchableOpacity style={styles.buyBtn} onPress={handleBuyCredits}>
-          <Text style={styles.buyText}>💳 Buy More Credits</Text>
-        </TouchableOpacity>
+        <View style={styles.creditsInfo}>
+          <Text style={styles.creditsInfoTitle}>Need more credits?</Text>
+          <Text style={styles.creditsInfoBody}>
+            Credit packs are managed on speedi.co.uk — sign in to your account from any
+            web browser to top up.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -336,15 +331,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  buyBtn: {
-    backgroundColor: '#E64A19',
+  creditsInfo: {
+    backgroundColor: '#111111',
     borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    padding: 16,
   },
-  buyText: {
+  creditsInfoTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  creditsInfoBody: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

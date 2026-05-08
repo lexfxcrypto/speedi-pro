@@ -176,14 +176,8 @@ export default function Messages() {
       } else if (data.code === 'NO_CREDITS') {
         Alert.alert(
           'Not enough credits',
-          'You need at least 1 credit to unlock this message.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Buy credits',
-              onPress: () => Linking.openURL(`${API}/dashboard?buy=1`),
-            },
-          ],
+          'You need at least 1 credit to unlock this message. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
+          [{ text: 'OK' }],
         );
       } else if (data.code === 'ALREADY_ACCEPTED') {
         load();
