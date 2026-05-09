@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -86,25 +87,80 @@ export default function ApprovedCredentials() {
   const latestFor = (type: string): Doc | undefined =>
     docs.find((d) => d.documentType === type);
 
-  const handleUpload = async (type: string) => {
-    if (uploadingType) return;
+  type PickedAsset = { uri: string; name: string; mimeType: string };
 
+  const normaliseImageAsset = (
+    asset: ImagePicker.ImagePickerAsset,
+    fallbackName: string,
+  ): PickedAsset => {
+    const raw =
+      asset.mimeType && /^image\/(jpeg|png|webp|heic|heif)$/.test(asset.mimeType)
+        ? asset.mimeType
+        : 'image/jpeg';
+    // Server's allow-list rejects HEIC/HEIF — declare as JPEG so the type check
+    // passes; raw bytes survive the upload and decode fine downstream.
+    const declared = raw === 'image/heic' || raw === 'image/heif' ? 'image/jpeg' : raw;
+    const ext = declared.split('/')[1] === 'jpeg' ? 'jpg' : declared.split('/')[1];
+    return {
+      uri: asset.uri,
+      name: asset.fileName ?? `${fallbackName}.${ext}`,
+      mimeType: declared,
+    };
+  };
+
+  const pickFromCamera = async (type: string): Promise<PickedAsset | null> => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow camera access to photograph your document.');
+      return null;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.92,
+    });
+    if (result.canceled) return null;
+    return normaliseImageAsset(result.assets[0], type);
+  };
+
+  const pickFromLibrary = async (type: string): Promise<PickedAsset | null> => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo access to upload from your camera roll.');
+      return null;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.92,
+    });
+    if (result.canceled) return null;
+    return normaliseImageAsset(result.assets[0], type);
+  };
+
+  const pickFromFiles = async (): Promise<PickedAsset | null> => {
     const picked = await DocumentPicker.getDocumentAsync({
       type: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
       copyToCacheDirectory: true,
       multiple: false,
     });
-
-    if (picked.canceled || !picked.assets?.[0]) return;
+    if (picked.canceled || !picked.assets?.[0]) return null;
     const asset = picked.assets[0];
+    return {
+      uri: asset.uri,
+      name: asset.name ?? 'document',
+      mimeType: asset.mimeType ?? 'application/octet-stream',
+    };
+  };
 
+  const uploadAsset = async (type: string, asset: PickedAsset) => {
     setUploadingType(type);
     try {
       const formData = new FormData();
       formData.append('file', {
         uri: asset.uri,
-        name: asset.name ?? 'document',
-        type: asset.mimeType ?? 'application/octet-stream',
+        name: asset.name,
+        type: asset.mimeType,
       } as unknown as Blob);
 
       const token = await getToken();
@@ -155,6 +211,38 @@ export default function ApprovedCredentials() {
     } finally {
       setUploadingType(null);
     }
+  };
+
+  const handleUpload = (type: string) => {
+    if (uploadingType) return;
+    Alert.alert(
+      'Add document',
+      'How would you like to add this document?',
+      [
+        {
+          text: 'Take photo',
+          onPress: async () => {
+            const asset = await pickFromCamera(type);
+            if (asset) await uploadAsset(type, asset);
+          },
+        },
+        {
+          text: 'Choose from camera roll',
+          onPress: async () => {
+            const asset = await pickFromLibrary(type);
+            if (asset) await uploadAsset(type, asset);
+          },
+        },
+        {
+          text: 'Choose file (PDF)',
+          onPress: async () => {
+            const asset = await pickFromFiles();
+            if (asset) await uploadAsset(type, asset);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
   };
 
   const requiredDocs = tier ? REQUIRED_BY_TIER[tier] ?? [] : [];
