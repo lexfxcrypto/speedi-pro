@@ -5,6 +5,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
+  Pressable,
   SafeAreaView,
   ScrollView,
   Share,
@@ -116,6 +118,7 @@ export default function Profile() {
   const [editBusinessVisible, setEditBusinessVisible] = useState(false);
   const [photos, setPhotos] = useState<{ id: string; url: string }[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
   const loadCredentials = async () => {
     try {
@@ -569,6 +572,7 @@ export default function Profile() {
                 <TouchableOpacity
                   key={p.id}
                   style={styles.portfolioPhoto}
+                  onPress={() => setPreviewPhotoUrl(p.url)}
                   onLongPress={() => handleRemovePhoto(p.id)}
                   delayLongPress={350}
                   activeOpacity={0.85}
@@ -686,6 +690,26 @@ export default function Profile() {
           loadProfile();
         }}
       />
+
+      <Modal
+        visible={previewPhotoUrl !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewPhotoUrl(null)}
+      >
+        <Pressable style={styles.lightboxBackdrop} onPress={() => setPreviewPhotoUrl(null)}>
+          {previewPhotoUrl ? (
+            <Image
+              source={{ uri: previewPhotoUrl }}
+              style={styles.lightboxImage}
+              resizeMode="contain"
+            />
+          ) : null}
+          <View style={styles.lightboxClose} pointerEvents="none">
+            <Text style={styles.lightboxCloseText}>✕</Text>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -986,6 +1010,32 @@ const styles = StyleSheet.create({
   workerCredits: {
     color: '#E64A19',
     fontSize: 14,
+    fontWeight: '700',
+  },
+  lightboxBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxClose: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxCloseText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '700',
   },
 });
