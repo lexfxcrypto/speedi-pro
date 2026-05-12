@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
+import { SHOW_IAP_CREDITS } from '../lib/featureFlags';
+import CreditsPurchaseSheet from '../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
 
@@ -44,6 +46,7 @@ export default function Quotes() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState<string | null>(null);
+  const [showPurchaseSheet, setShowPurchaseSheet] = useState(false);
 
   const load = async () => {
     try {
@@ -111,11 +114,22 @@ export default function Quotes() {
           actions,
         );
       } else if (data.code === 'NO_CREDITS') {
-        Alert.alert(
-          'Not enough credits',
-          'You need at least 1 credit to respond to a quote. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
-          [{ text: 'OK' }],
-        );
+        if (SHOW_IAP_CREDITS) {
+          Alert.alert(
+            'Not enough credits',
+            'You need at least 1 credit to respond to a quote.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Buy credits', onPress: () => setShowPurchaseSheet(true) },
+            ],
+          );
+        } else {
+          Alert.alert(
+            'Not enough credits',
+            'You need at least 1 credit to respond to a quote. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
+            [{ text: 'OK' }],
+          );
+        }
       } else if (data.code === 'CLOSED') {
         Alert.alert('Quote closed', 'This quote is no longer accepting responses.', [
           { text: 'OK' },
@@ -232,6 +246,11 @@ export default function Quotes() {
           )}
         </ScrollView>
       )}
+
+      <CreditsPurchaseSheet
+        visible={showPurchaseSheet}
+        onClose={() => setShowPurchaseSheet(false)}
+      />
     </SafeAreaView>
   );
 }

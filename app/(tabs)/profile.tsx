@@ -21,7 +21,8 @@ import EditBusinessModal from '../../components/EditBusinessModal';
 import { fetchWithAuth, getToken, logout } from '../../lib/auth';
 import { getCertSuggestionsForTrade } from '../../lib/certifications';
 import { getProviderNoun } from '../../lib/copy';
-import { SHOW_COMPANIES } from '../../lib/featureFlags';
+import { SHOW_COMPANIES, SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import { restorePurchases } from '../../lib/iap';
 
 const API = 'https://www.speeditrades.com';
 
@@ -313,6 +314,37 @@ export default function Profile() {
 
   // Account deletion — required by Apple App Store Guideline 5.1.1(v).
   // Two confirmations: first explains what happens, second is a destructive
+  // Restore purchases — Apple requires this for any app selling
+  // consumables. Replays every StoreKit transaction through our
+  // backend; the receipt endpoint is idempotent so already-credited
+  // transactions are no-ops.
+  const [restoring, setRestoring] = useState(false);
+  const handleRestorePurchases = async () => {
+    if (restoring) return;
+    setRestoring(true);
+    try {
+      const { restoredCount, newBalance } = await restorePurchases();
+      if (restoredCount > 0) {
+        Alert.alert(
+          'Purchases restored',
+          `Restored ${restoredCount} purchase${restoredCount === 1 ? '' : 's'}. You now have ${newBalance} credits.`,
+        );
+      } else {
+        Alert.alert(
+          'Nothing to restore',
+          "No previous purchases were found on this Apple ID, or they've already been credited.",
+        );
+      }
+    } catch (e) {
+      Alert.alert(
+        'Restore failed',
+        e instanceof Error ? e.message : 'Try again.',
+      );
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   // tap-to-confirm. On success, clear local auth and route to /login.
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -653,6 +685,21 @@ export default function Profile() {
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
+        {SHOW_IAP_CREDITS && (
+          <TouchableOpacity
+            style={styles.restoreBtn}
+            onPress={handleRestorePurchases}
+            disabled={restoring}
+            activeOpacity={0.8}
+          >
+            {restoring ? (
+              <ActivityIndicator color="#9CA3AF" />
+            ) : (
+              <Text style={styles.restoreText}>Restore Purchases</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={styles.deleteAccountBtn}
           onPress={handleDeleteAccount}
@@ -926,6 +973,18 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 15,
     fontWeight: '600',
+  },
+  restoreBtn: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    backgroundColor: 'transparent',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  restoreText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '500',
   },
   deleteAccountBtn: {
     marginHorizontal: 20,

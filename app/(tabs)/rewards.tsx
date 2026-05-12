@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
+import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
 
@@ -60,6 +62,7 @@ function formatRelative(iso: string): string {
 
 export default function Rewards() {
   const [data, setData] = useState<RewardsData | null>(null);
+  const [showPurchaseSheet, setShowPurchaseSheet] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -180,14 +183,29 @@ export default function Rewards() {
           )}
         </View>
 
-        <View style={styles.creditsInfo}>
-          <Text style={styles.creditsInfoTitle}>Need more credits?</Text>
-          <Text style={styles.creditsInfoBody}>
-            Credit packs are managed on speedi.co.uk — sign in to your account from any
-            web browser to top up.
-          </Text>
-        </View>
+        {SHOW_IAP_CREDITS ? (
+          <TouchableOpacity
+            style={styles.buyBtn}
+            onPress={() => setShowPurchaseSheet(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.buyBtnText}>💳 Buy credits</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.creditsInfo}>
+            <Text style={styles.creditsInfoTitle}>Need more credits?</Text>
+            <Text style={styles.creditsInfoBody}>
+              Credit packs are managed on speedi.co.uk — sign in to your account from any
+              web browser to top up.
+            </Text>
+          </View>
+        )}
       </ScrollView>
+
+      <CreditsPurchaseSheet
+        visible={showPurchaseSheet}
+        onClose={() => setShowPurchaseSheet(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -330,6 +348,21 @@ const styles = StyleSheet.create({
   historyAmount: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  buyBtn: {
+    backgroundColor: '#E64A19',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  buyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   creditsInfo: {
     backgroundColor: '#111111',

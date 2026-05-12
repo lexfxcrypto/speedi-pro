@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
 import { getProviderNoun } from '../../lib/copy';
+import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
 
@@ -86,6 +88,7 @@ export default function Waiting() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [showPurchaseSheet, setShowPurchaseSheet] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -177,11 +180,22 @@ export default function Waiting() {
         );
         loadJobs();
       } else if (data.code === 'NO_CREDITS') {
-        Alert.alert(
-          'Not enough credits',
-          'You need at least 1 credit to accept a job. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
-          [{ text: 'OK' }],
-        );
+        if (SHOW_IAP_CREDITS) {
+          Alert.alert(
+            'Not enough credits',
+            'You need at least 1 credit to accept a job.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Buy credits', onPress: () => setShowPurchaseSheet(true) },
+            ],
+          );
+        } else {
+          Alert.alert(
+            'Not enough credits',
+            'You need at least 1 credit to accept a job. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
+            [{ text: 'OK' }],
+          );
+        }
       } else {
         Alert.alert('Error', 'Could not accept job. Try again.');
       }
@@ -456,6 +470,11 @@ export default function Waiting() {
           <Text style={styles.historyText}>View job history</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <CreditsPurchaseSheet
+        visible={showPurchaseSheet}
+        onClose={() => setShowPurchaseSheet(false)}
+      />
     </SafeAreaView>
   );
 }
