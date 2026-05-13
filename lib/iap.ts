@@ -1,15 +1,14 @@
 /**
- * Native side of the IAP flow.
+ * Native side of the IAP flow (expo-iap).
  *
- *   StoreKit connection → fetch products → request purchase → receive
- *   transaction with receipt → POST receipt to our backend → backend
- *   verifies with Apple + credits the user → we finish the transaction
- *   with Apple so it doesn't redeliver.
+ *   StoreKit connection → fetch products → request purchase → grab the
+ *   base64 receipt → POST to our backend → backend verifies with Apple
+ *   + credits the user → finish the transaction so it doesn't redeliver.
  *
  * The backend is the source of truth on whether a transaction was
- * honoured (idempotent on Apple's transaction id), so a flaky
- * network on the redeem call is safe — the StoreKit transaction stays
- * unfinished, and the client retries on next purchase init.
+ * honoured (idempotent on Apple's transaction id), so a flaky network
+ * on the redeem call is safe — the StoreKit transaction stays
+ * unfinished and the client retries on next purchase init.
  *
  * Server endpoint:  POST https://www.speeditrades.com/api/native/iap-receipt
  * Server source:    speedi/src/app/api/native/iap-receipt/route.ts
@@ -18,13 +17,13 @@
 import {
   initConnection,
   endConnection,
-  getProducts,
+  fetchProducts as expoFetchProducts,
   requestPurchase,
-  getAvailablePurchases,
   finishTransaction,
   type Product,
-  type ProductPurchase,
-} from "react-native-iap";
+  type Purchase,
+} from "expo-iap";
+import { getReceiptDataIOS, requestReceiptRefreshIOS } from "expo-iap";
 import { Platform } from "react-native";
 import { fetchWithAuth } from "./auth";
 import { IAP_PRODUCT_IDS } from "./featureFlags";
@@ -54,34 +53,35 @@ export async function disconnectIap(): Promise<void> {
 
 /**
  * Fetch the configured products from StoreKit. Returns an empty list if
- * Apple hasn't approved the products yet, or if running on Android (we
- * gate the call by Platform.OS upstream but defensive here too).
+ * Apple hasn't approved the products yet, or if running on Android.
  */
 export async function fetchProducts(): Promise<CreditPack[]> {
   if (Platform.OS !== "ios") return [];
-  const products = (await getProducts({ skus: [...IAP_PRODUCT_IDS] })) as Product[];
+  const result = await expoFetchProducts({ skus: [...IAP_PRODUCT_IDS], type: "in-app" });
+  const products = (result ?? []) as Product[];
   return products.map((p) => ({
-    productId: p.productId,
-    priceLabel: p.localizedPrice,
-    priceValue: Number(p.price),
+    productId: p.id,
+    priceLabel: p.displayPrice,
+    priceValue: p.price ?? 0,
     currency: p.currency,
   }));
 }
 
 /**
- * Redeem a single StoreKit purchase against our backend, then finish
- * the transaction with Apple. Returns the new credit balance or throws.
- *
- * `purchase.transactionReceipt` is the base64 receipt blob Apple expects
- * us to pass to verifyReceipt. On iOS this is always present on a
- * successful StoreKit transaction.
+ * Pull the app's base64 receipt blob. After a first purchase the file
+ * on disk can be empty until App Store sync writes it — in that case
+ * fall through to requestReceiptRefreshIOS() which calls AppStore.sync()
+ * before re-reading.
  */
-async function redeemPurchase(purchase: ProductPurchase): Promise<{
-  creditsAdded: number;
-  newBalance: number;
-}> {
-  const receipt = purchase.transactionReceipt;
-  if (!receipt) throw new Error("Purchase had no receipt");
+async function readReceipt(): Promise<string> {
+  const initial = await getReceiptDataIOS();
+  if (initial) return initial;
+  return requestReceiptRefreshIOS();
+}
+
+async function redeemReceipt(): Promise<{ creditsAdded: number; newBalance: number }> {
+  const receipt = await readReceipt();
+  if (!receipt) throw new Error("No receipt available");
 
   const res = await fetchWithAuth(`${API}/api/native/iap-receipt`, {
     method: "POST",
@@ -92,10 +92,6 @@ async function redeemPurchase(purchase: ProductPurchase): Promise<{
     throw new Error(body.error || `Receipt redemption failed (${res.status})`);
   }
 
-  // Tell Apple we've honoured the consumable — without this Apple keeps
-  // redelivering the transaction on every connection init.
-  await finishTransaction({ purchase, isConsumable: true });
-
   return {
     creditsAdded: body.creditsAdded ?? 0,
     newBalance: body.newBalance ?? 0,
@@ -103,9 +99,9 @@ async function redeemPurchase(purchase: ProductPurchase): Promise<{
 }
 
 /**
- * Buy a credit pack. Wraps the StoreKit dance + backend redemption into
- * a single awaitable. Resolves with the new balance, rejects with a
- * user-presentable Error.
+ * Buy a credit pack. Wraps the StoreKit dance + backend redemption
+ * into a single awaitable. Resolves with the new balance, rejects
+ * with a user-presentable Error.
  */
 export async function buyCredits(productId: string): Promise<{
   creditsAdded: number;
@@ -115,24 +111,30 @@ export async function buyCredits(productId: string): Promise<{
     throw new Error("In-app purchase is only available on iOS right now.");
   }
 
-  const purchase = (await requestPurchase({ sku: productId })) as ProductPurchase | ProductPurchase[] | undefined;
-  // RNIAP can return either a single purchase or an array depending on
-  // platform/version. Normalise to the first transaction.
-  const tx = Array.isArray(purchase) ? purchase[0] : purchase;
-  if (!tx) throw new Error("Purchase did not return a transaction");
+  const result = await requestPurchase({
+    request: { ios: { sku: productId } },
+    type: "in-app",
+  });
 
-  return redeemPurchase(tx);
+  const purchase = (Array.isArray(result) ? result[0] : result) as Purchase | undefined;
+  if (!purchase) throw new Error("Purchase did not return a transaction");
+
+  const redemption = await redeemReceipt();
+
+  // Tell Apple we've honoured the consumable — without this Apple
+  // keeps redelivering the transaction on every connection init.
+  await finishTransaction({ purchase, isConsumable: true });
+
+  return redemption;
 }
 
 /**
- * Replay every StoreKit transaction in the user's purchase history
- * through our backend. Used by Profile → "Restore Purchases" (Apple
- * requires this affordance for consumable apps). Backend is idempotent
- * so replaying a transaction we've already credited is a no-op.
+ * Replay the user's purchase history through our backend. Apple
+ * requires this affordance for consumable apps. Backend is idempotent
+ * — replaying a transaction we've already credited is a no-op.
  *
- * Returns the count of transactions that ACTUALLY granted new credits
- * (already-credited transactions don't count). The new balance is also
- * returned so the caller can update its UI.
+ * Returns the count of NEW credits granted by this call and the new
+ * balance for UI sync.
  */
 export async function restorePurchases(): Promise<{
   restoredCount: number;
@@ -141,22 +143,11 @@ export async function restorePurchases(): Promise<{
   if (Platform.OS !== "ios") {
     return { restoredCount: 0, newBalance: 0 };
   }
-
-  const purchases = (await getAvailablePurchases()) as ProductPurchase[];
-  let restoredCount = 0;
-  let latestBalance = 0;
-
-  for (const p of purchases) {
-    try {
-      const { creditsAdded, newBalance } = await redeemPurchase(p);
-      if (creditsAdded > 0) restoredCount += 1;
-      latestBalance = newBalance;
-    } catch (e) {
-      // Skip individual failures rather than failing the whole restore;
-      // log so we can spot patterns.
-      console.log("Restore: failed to redeem one purchase", e);
-    }
+  try {
+    const { creditsAdded, newBalance } = await redeemReceipt();
+    return { restoredCount: creditsAdded > 0 ? 1 : 0, newBalance };
+  } catch (e) {
+    console.log("Restore failed:", e);
+    return { restoredCount: 0, newBalance: 0 };
   }
-
-  return { restoredCount, newBalance: latestBalance };
 }
