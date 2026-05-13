@@ -17,7 +17,8 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth, logout } from '../../lib/auth';
-import { SHOW_COMPANIES } from '../../lib/featureFlags';
+import { SHOW_COMPANIES, SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
 
@@ -236,6 +237,7 @@ export default function Home() {
   const requestsLoadedRef = useRef(false);
   const quotesLoadedRef = useRef(false);
   const [waitingCount, setWaitingCount] = useState(0);
+  const [showPurchaseSheet, setShowPurchaseSheet] = useState(false);
   const [quoteAlert, setQuoteAlert] = useState<{
     count: number;
     latest: { id: string; jobType: string } | null;
@@ -943,13 +945,23 @@ export default function Home() {
             </View>
           )}
 
-        <View style={styles.buyCreditsCard}>
-          <Text style={styles.buyIcon}>💳</Text>
-          <Text style={styles.buyLabel}>{credits} credits remaining</Text>
-          <Text style={styles.creditsHint}>
-            Manage on speedi.co.uk
-          </Text>
-        </View>
+        {SHOW_IAP_CREDITS ? (
+          <TouchableOpacity
+            style={styles.buyCreditsCard}
+            onPress={() => setShowPurchaseSheet(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.buyIcon}>💳</Text>
+            <Text style={styles.buyLabel}>{credits} credits remaining</Text>
+            <Text style={styles.creditsHint}>Tap to buy more</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.buyCreditsCard}>
+            <Text style={styles.buyIcon}>💳</Text>
+            <Text style={styles.buyLabel}>{credits} credits remaining</Text>
+            <Text style={styles.creditsHint}>Manage on speedi.co.uk</Text>
+          </View>
+        )}
 
         <View style={styles.quotesCard}>
           <View style={{ flex: 1 }}>
@@ -1017,6 +1029,11 @@ export default function Home() {
           <Text style={styles.calendarChevron}>›</Text>
         </TouchableOpacity>
       </ScrollView>
+      <CreditsPurchaseSheet
+        visible={showPurchaseSheet}
+        onClose={() => setShowPurchaseSheet(false)}
+        onPurchased={(newBalance) => setCredits(newBalance)}
+      />
     </SafeAreaView>
   );
 }

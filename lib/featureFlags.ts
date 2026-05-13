@@ -22,7 +22,7 @@ export const SHOW_COMPANIES = false;
  * approval — calling react-native-iap with non-existent SKUs throws and
  * surfaces an Apple error dialog to the tester.
  */
-export const SHOW_IAP_CREDITS = false;
+export const SHOW_IAP_CREDITS = true;
 
 /**
  * Apple IAP product identifiers. MUST match the productId set in App
