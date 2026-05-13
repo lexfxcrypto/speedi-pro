@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
+import { normalisePhone } from '../lib/phone';
 
 const API = 'https://www.speeditrades.com';
 
@@ -19,6 +21,8 @@ type Job = {
   description: string | null;
   status: 'accepted' | 'completed';
   customerName: string | null;
+  customerPhone: string | null;
+  customerEmail: string | null;
   acceptedAt: string | null;
 };
 
@@ -86,7 +90,46 @@ export default function JobHistory() {
                 <View style={styles.body}>
                   <Text style={styles.name}>{job.customerName ?? 'Customer'}</Text>
                   <Text style={styles.meta}>{job.jobType}</Text>
+                  {job.description ? (
+                    <Text style={styles.description}>{job.description}</Text>
+                  ) : null}
                   <Text style={styles.date}>{formatDate(job.acceptedAt)}</Text>
+                  {job.customerPhone || job.customerEmail ? (
+                    <View style={styles.actions}>
+                      {job.customerPhone ? (
+                        <>
+                          <TouchableOpacity
+                            style={styles.actionBtn}
+                            onPress={() =>
+                              Linking.openURL(`tel:${normalisePhone(job.customerPhone)}`)
+                            }
+                          >
+                            <Text style={styles.actionText}>📞 Call</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionBtn}
+                            onPress={() =>
+                              Linking.openURL(`sms:${normalisePhone(job.customerPhone)}`)
+                            }
+                          >
+                            <Text style={styles.actionText}>💬 SMS</Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : null}
+                      {job.customerEmail ? (
+                        <TouchableOpacity
+                          style={styles.actionBtn}
+                          onPress={() => Linking.openURL(`mailto:${job.customerEmail}`)}
+                        >
+                          <Text style={styles.actionText}>✉ Email</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <Text style={styles.noContact}>
+                      No contact details captured for this customer
+                    </Text>
+                  )}
                 </View>
               </View>
             ))
@@ -140,5 +183,15 @@ const styles = StyleSheet.create({
   body: { flex: 1, padding: 14 },
   name: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
   meta: { color: '#9CA3AF', fontSize: 13, marginTop: 4 },
-  date: { color: '#6B7280', fontSize: 12, marginTop: 4 },
+  description: { color: '#D4D4D8', fontSize: 12, marginTop: 6, lineHeight: 17 },
+  date: { color: '#6B7280', fontSize: 12, marginTop: 6 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
+  actionBtn: {
+    backgroundColor: '#1F1F1F',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  actionText: { color: '#E5E7EB', fontSize: 12, fontWeight: '700' },
+  noContact: { color: '#71717A', fontSize: 11, fontStyle: 'italic', marginTop: 8 },
 });

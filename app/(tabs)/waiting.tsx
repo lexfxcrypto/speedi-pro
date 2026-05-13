@@ -265,12 +265,15 @@ export default function Waiting() {
   };
 
   const todayStart = startOfToday();
+  // 30-day retention so a mis-tap on "Mark Complete" doesn't permanently
+  // hide the customer's contact details + original message.
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const activeJobs = jobs.filter((j) => j.status === 'accepted');
-  const completedToday = jobs.filter(
+  const completedRecent = jobs.filter(
     (j) =>
       j.status === 'completed' &&
       j.acceptedAt !== null &&
-      new Date(j.acceptedAt).getTime() >= todayStart,
+      new Date(j.acceptedAt).getTime() >= thirtyDaysAgo,
   );
   const todayRequests = requests.filter(
     (r) => new Date(r.createdAt).getTime() >= todayStart,
@@ -429,7 +432,7 @@ export default function Waiting() {
           )}
         </View>
 
-        {completedToday.length > 0 && (
+        {completedRecent.length > 0 && (
           <>
             <TouchableOpacity
               style={styles.completedToggle}
@@ -437,14 +440,14 @@ export default function Waiting() {
               activeOpacity={0.8}
             >
               <Text style={styles.completedToggleText}>
-                ✓ Completed today ({completedToday.length}{' '}
-                {completedToday.length === 1 ? 'job' : 'jobs'})
+                ✓ Recently completed ({completedRecent.length}{' '}
+                {completedRecent.length === 1 ? 'job' : 'jobs'})
               </Text>
               <Text style={styles.completedChevron}>{showCompleted ? '˅' : '›'}</Text>
             </TouchableOpacity>
 
             {showCompleted &&
-              completedToday.map((job) => (
+              completedRecent.map((job) => (
                 <View key={job.id} style={styles.completedCard}>
                   <View style={styles.completedBar} />
                   <View style={styles.completedBody}>
@@ -452,11 +455,46 @@ export default function Waiting() {
                       {job.customerName ?? 'Customer'}
                     </Text>
                     <Text style={styles.completedMeta}>{job.jobType}</Text>
+                    {job.description ? (
+                      <Text style={styles.completedDescription}>{job.description}</Text>
+                    ) : null}
                     {job.acceptedAt ? (
                       <Text style={styles.completedTime}>
                         Completed · {formatCompletedTime(job.acceptedAt)}
                       </Text>
                     ) : null}
+                    {job.customerPhone || job.customerEmail ? (
+                      <View style={styles.completedActions}>
+                        {job.customerPhone ? (
+                          <>
+                            <TouchableOpacity
+                              style={styles.completedActionBtn}
+                              onPress={() => callPhone(job.customerPhone)}
+                            >
+                              <Text style={styles.completedActionText}>📞 Call</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.completedActionBtn}
+                              onPress={() => smsPhone(job.customerPhone)}
+                            >
+                              <Text style={styles.completedActionText}>💬 SMS</Text>
+                            </TouchableOpacity>
+                          </>
+                        ) : null}
+                        {job.customerEmail ? (
+                          <TouchableOpacity
+                            style={styles.completedActionBtn}
+                            onPress={() => emailUser(job.customerEmail)}
+                          >
+                            <Text style={styles.completedActionText}>✉ Email</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <Text style={styles.completedNoContact}>
+                        No contact details captured for this customer
+                      </Text>
+                    )}
                   </View>
                 </View>
               ))}
@@ -676,7 +714,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginTop: 10,
     overflow: 'hidden',
-    opacity: 0.6,
+    opacity: 0.85,
   },
   completedBar: {
     width: 3,
@@ -696,10 +734,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  completedDescription: {
+    color: '#D4D4D8',
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 17,
+  },
   completedTime: {
     color: '#6B7280',
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 4,
+  },
+  completedActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    flexWrap: 'wrap',
+  },
+  completedActionBtn: {
+    backgroundColor: '#1F1F1F',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  completedActionText: {
+    color: '#E5E7EB',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  completedNoContact: {
+    color: '#71717A',
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 8,
   },
   historyBtn: {
     alignItems: 'center',
