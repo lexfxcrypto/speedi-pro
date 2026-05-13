@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
 import { SHOW_IAP_CREDITS } from '../lib/featureFlags';
+import { normalisePhone } from '../lib/phone';
 import CreditsPurchaseSheet from '../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
@@ -90,11 +91,11 @@ export default function Quotes() {
         if (phone) {
           actions.push({
             text: '📞 Call',
-            onPress: () => Linking.openURL(`tel:${phone}`),
+            onPress: () => Linking.openURL(`tel:${normalisePhone(phone)}`),
           });
           actions.push({
             text: '💬 SMS',
-            onPress: () => Linking.openURL(`sms:${phone}`),
+            onPress: () => Linking.openURL(`sms:${normalisePhone(phone)}`),
           });
         }
         if (email) {

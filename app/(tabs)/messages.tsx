@@ -14,6 +14,7 @@ import {
 import { fetchWithAuth } from '../../lib/auth';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import { normalisePhone } from '../../lib/phone';
 import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
@@ -153,11 +154,11 @@ export default function Messages() {
         if (phone) {
           actions.push({
             text: '💬 Reply via SMS',
-            onPress: () => Linking.openURL(`sms:${phone}`),
+            onPress: () => Linking.openURL(`sms:${normalisePhone(phone)}`),
           });
           actions.push({
             text: '📞 Call',
-            onPress: () => Linking.openURL(`tel:${phone}`),
+            onPress: () => Linking.openURL(`tel:${normalisePhone(phone)}`),
           });
         }
         if (email) {
@@ -235,11 +236,11 @@ export default function Messages() {
     if (msg.otherUserPhone) {
       actions.push({
         text: '💬 Reply via SMS',
-        onPress: () => Linking.openURL(`sms:${msg.otherUserPhone}`),
+        onPress: () => Linking.openURL(`sms:${normalisePhone(msg.otherUserPhone)}`),
       });
       actions.push({
         text: '📞 Call',
-        onPress: () => Linking.openURL(`tel:${msg.otherUserPhone}`),
+        onPress: () => Linking.openURL(`tel:${normalisePhone(msg.otherUserPhone)}`),
       });
     }
     if (msg.otherUserEmail) {

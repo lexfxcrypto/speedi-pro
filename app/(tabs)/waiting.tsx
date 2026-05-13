@@ -15,6 +15,7 @@ import {
 import { fetchWithAuth } from '../../lib/auth';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import { normalisePhone } from '../../lib/phone';
 import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
@@ -157,7 +158,7 @@ export default function Waiting() {
             {
               text: '📞 Call',
               onPress: () => {
-                if (customerPhone) Linking.openURL(`tel:${customerPhone}`);
+                if (customerPhone) Linking.openURL(`tel:${normalisePhone(customerPhone)}`);
               },
             },
             {
@@ -171,7 +172,7 @@ export default function Waiting() {
                   `I'm free now and ready to come to you. ` +
                   `What's the best time?`;
                 Linking.openURL(
-                  `sms:${customerPhone}?body=${encodeURIComponent(message)}`,
+                  `sms:${normalisePhone(customerPhone)}?body=${encodeURIComponent(message)}`,
                 );
               },
             },
@@ -238,7 +239,7 @@ export default function Waiting() {
                   `a quick review — it only takes 30 seconds: ` +
                   `${reviewUrl}`;
                 Linking.openURL(
-                  `sms:${customerPhone}?body=${encodeURIComponent(message)}`,
+                  `sms:${normalisePhone(customerPhone)}?body=${encodeURIComponent(message)}`,
                 );
               },
             },
@@ -254,10 +255,10 @@ export default function Waiting() {
   };
 
   const callPhone = (phone: string | null) => {
-    if (phone) Linking.openURL(`tel:${phone}`);
+    if (phone) Linking.openURL(`tel:${normalisePhone(phone)}`);
   };
   const smsPhone = (phone: string | null) => {
-    if (phone) Linking.openURL(`sms:${phone}`);
+    if (phone) Linking.openURL(`sms:${normalisePhone(phone)}`);
   };
   const emailUser = (email: string | null) => {
     if (email) Linking.openURL(`mailto:${email}`);
