@@ -81,7 +81,7 @@ export default function Rewards() {
   }, []);
 
   const referralCode = data?.referralCode ?? '';
-  const referralUrl = referralCode ? `speedi.co.uk/join?ref=${referralCode}` : 'speedi.co.uk';
+  const referralUrl = referralCode ? `speedi.co.uk/register?ref=${referralCode}` : 'speedi.co.uk';
   const shareUrl = `https://${referralUrl}`;
 
   const handleCopyCode = async () => {
