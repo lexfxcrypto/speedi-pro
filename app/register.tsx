@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -64,6 +65,20 @@ export default function Register() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace('/login');
+        }}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      >
+        <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+        <Text style={styles.backText}>Back</Text>
+      </TouchableOpacity>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -163,6 +178,19 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+  },
+  backText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 2,
   },
   container: {
     flex: 1,
