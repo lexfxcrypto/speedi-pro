@@ -33,7 +33,7 @@ import { IAP_PRODUCT_IDS } from "../lib/featureFlags";
 
 const CREDIT_AMOUNT_BY_PRODUCT: Record<string, number> = {
   "com.speeditrades.speedipro.credits_10": 10,
-  "com.speeditrades.speedipro.credits_25": 25,
+  "com.speeditrades.speedipro.credits_20": 20,
   "com.speeditrades.speedipro.credits_50": 50,
 };
 

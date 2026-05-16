@@ -32,7 +32,7 @@ export const SHOW_IAP_CREDITS = true;
  */
 export const IAP_PRODUCT_IDS = [
   "com.speeditrades.speedipro.credits_10",
-  "com.speeditrades.speedipro.credits_25",
+  "com.speeditrades.speedipro.credits_20",
   "com.speeditrades.speedipro.credits_50",
 ] as const;
 
