@@ -18,10 +18,11 @@
       "deploymentTarget": "15.0",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Speedi uses your location to show nearby tradespeople and broadcast your availability when you're toggled live.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Speedi keeps your location updated while you're toggled available so customers see your accurate position. Location is only tracked while you're live — toggling offline stops all tracking.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "While you're toggled live, Speedi keeps your pin updated as you move between jobs — even when the app is in the background or your phone is locked. Tracking stops immediately when you toggle offline.",
         "NSCameraUsageDescription": "Speedi uses the camera to take profile photos and document your verified credentials.",
         "NSPhotoLibraryUsageDescription": "Speedi accesses your photos to upload your profile picture and credential documents.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["location"]
       },
       "bundleIdentifier": "com.speeditrades.speedipro"
     },

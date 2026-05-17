@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { fetchWithAuth, logout } from '../../lib/auth';
 import { SHOW_COMPANIES, SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import { startLiveLocationTracking, stopLiveLocationTracking } from '../../lib/location';
 import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
@@ -548,18 +549,39 @@ export default function Home() {
   }, [startTime, initialDuration, tlState]);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (tlState === 'green') {
+      // Snappy first update from the foreground.
       updateLocation();
-      locationInterval.current = setInterval(updateLocation, 15000);
-    } else if (locationInterval.current) {
-      clearInterval(locationInterval.current);
-      locationInterval.current = null;
-    }
-    return () => {
+
+      // Try background tracking — survives screen lock + app backgrounding.
+      startLiveLocationTracking().then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          // Background permission denied or task failed to start.
+          // Fall back to foreground-only polling so something updates
+          // while the app is open. Pin will go stale once user locks.
+          if (!locationInterval.current) {
+            locationInterval.current = setInterval(updateLocation, 15000);
+          }
+        }
+      });
+    } else {
       if (locationInterval.current) {
         clearInterval(locationInterval.current);
         locationInterval.current = null;
       }
+      stopLiveLocationTracking();
+    }
+
+    return () => {
+      cancelled = true;
+      if (locationInterval.current) {
+        clearInterval(locationInterval.current);
+        locationInterval.current = null;
+      }
+      stopLiveLocationTracking();
     };
   }, [tlState]);
 

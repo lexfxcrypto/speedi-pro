@@ -5,6 +5,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Linking } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
+// Side-effect import: registers the live-location TaskManager task so
+// iOS can wake the app when the pro moves while in the background.
+import '../lib/location';
 import { ensurePushTokenRegistered } from '../lib/push';
 
 const API_BASE = 'https://www.speeditrades.com';
