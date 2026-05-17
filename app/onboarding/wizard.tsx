@@ -290,7 +290,7 @@ export default function Wizard() {
         throw new Error(errMsg);
       }
 
-      router.replace('/(tabs)');
+      router.replace('/onboarding/notifications');
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : 'Failed to complete setup'

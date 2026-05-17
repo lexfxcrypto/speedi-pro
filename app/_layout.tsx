@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Linking } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
+import { ensurePushTokenRegistered } from '../lib/push';
 
 const API_BASE = 'https://www.speeditrades.com';
 
@@ -16,44 +17,6 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
-
-async function registerForPushNotifications() {
-  try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-      console.log('Push notification permission denied');
-      return null;
-    }
-
-    const token = await Notifications.getExpoPushTokenAsync();
-    console.log('Expo push token:', token.data);
-    await SecureStore.setItemAsync('expo_push_token', token.data);
-
-    const authToken = await SecureStore.getItemAsync('auth_token');
-    if (authToken) {
-      fetch(`${API_BASE}/api/native/register-push`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ pushToken: token.data }),
-      }).catch((e) => console.log('register-push failed:', e));
-    }
-
-    return token.data;
-  } catch (e) {
-    console.log('Push registration failed:', e);
-    return null;
-  }
-}
 
 export default function RootLayout() {
   const router = useRouter();
@@ -93,7 +56,10 @@ export default function RootLayout() {
   }, [router]);
 
   useEffect(() => {
-    registerForPushNotifications();
+    // Silent: registers token with backend only if iOS has already granted
+    // permission. The opt-in prompt lives at /onboarding/notifications so
+    // users see context before iOS's system dialog.
+    ensurePushTokenRegistered();
   }, []);
 
   useEffect(() => {
