@@ -127,27 +127,3 @@ export async function buyCredits(productId: string): Promise<{
 
   return redemption;
 }
-
-/**
- * Replay the user's purchase history through our backend. Apple
- * requires this affordance for consumable apps. Backend is idempotent
- * — replaying a transaction we've already credited is a no-op.
- *
- * Returns the count of NEW credits granted by this call and the new
- * balance for UI sync.
- */
-export async function restorePurchases(): Promise<{
-  restoredCount: number;
-  newBalance: number;
-}> {
-  if (Platform.OS !== "ios") {
-    return { restoredCount: 0, newBalance: 0 };
-  }
-  try {
-    const { creditsAdded, newBalance } = await redeemReceipt();
-    return { restoredCount: creditsAdded > 0 ? 1 : 0, newBalance };
-  } catch (e) {
-    console.log("Restore failed:", e);
-    return { restoredCount: 0, newBalance: 0 };
-  }
-}
