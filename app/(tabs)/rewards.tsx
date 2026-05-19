@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   SafeAreaView,
   ScrollView,
   Share,
@@ -148,6 +149,25 @@ export default function Rewards() {
             <Text style={styles.statLabel}>Referrals</Text>
           </View>
         </View>
+
+        {/* Distinct from the casual "Refer a pro" card above — this is the
+            formal Speedi Affiliate Programme: 15% cash via Stripe Connect,
+            vetted partners only. Web-hosted dashboard; tap opens system
+            browser so the user keeps their session there. */}
+        <TouchableOpacity
+          style={styles.affiliateCard}
+          onPress={() => Linking.openURL('https://www.speedi.co.uk/affiliate')}
+          activeOpacity={0.85}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.affiliateBadge}>SPEEDI AFFILIATE PROGRAMME</Text>
+            <Text style={styles.affiliateTitle}>Earn cash for every pro you bring in</Text>
+            <Text style={styles.affiliateSubtitle}>
+              15% commission, paid monthly via Stripe. Tap to apply or manage.
+            </Text>
+          </View>
+          <Text style={styles.affiliateChevron}>›</Text>
+        </TouchableOpacity>
 
         <View style={styles.historyCard}>
           <Text style={styles.historyTitle}>Credit History</Text>
@@ -302,6 +322,39 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 12,
     marginTop: 4,
+  },
+  affiliateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 74, 25, 0.35)',
+  },
+  affiliateBadge: {
+    color: '#E64A19',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  affiliateTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  affiliateSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  affiliateChevron: {
+    color: '#6B7280',
+    fontSize: 22,
+    marginLeft: 12,
   },
   historyCard: {
     backgroundColor: '#111111',
