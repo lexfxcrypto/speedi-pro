@@ -114,6 +114,22 @@ export default function Rewards() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
+        {/* Speedi Affiliate Programme entry point. Web-hosted dashboard;
+            Linking.openURL opens the system browser so cookies/session
+            persist. Kept distinct from the "Refer a pro" hero below —
+            that one's the casual 10%-in-credits user-to-user scheme;
+            this is the formal 15% cash-via-Stripe partner programme. */}
+        <TouchableOpacity
+          style={styles.affiliatePill}
+          onPress={() => Linking.openURL('https://www.speedi.co.uk/affiliate')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.affiliatePillText} numberOfLines={1}>
+            Join our Affiliate Scheme — earn 15% cash back
+          </Text>
+          <Text style={styles.affiliatePillChevron}>›</Text>
+        </TouchableOpacity>
+
         <View style={styles.hero}>
           <Text style={styles.heroTitle}>Refer a pro</Text>
           <Text style={styles.heroSubtitle}>
@@ -149,25 +165,6 @@ export default function Rewards() {
             <Text style={styles.statLabel}>Referrals</Text>
           </View>
         </View>
-
-        {/* Distinct from the casual "Refer a pro" card above — this is the
-            formal Speedi Affiliate Programme: 15% cash via Stripe Connect,
-            vetted partners only. Web-hosted dashboard; tap opens system
-            browser so the user keeps their session there. */}
-        <TouchableOpacity
-          style={styles.affiliateCard}
-          onPress={() => Linking.openURL('https://www.speedi.co.uk/affiliate')}
-          activeOpacity={0.85}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.affiliateBadge}>SPEEDI AFFILIATE PROGRAMME</Text>
-            <Text style={styles.affiliateTitle}>Earn cash for every pro you bring in</Text>
-            <Text style={styles.affiliateSubtitle}>
-              15% commission, paid monthly via Stripe. Tap to apply or manage.
-            </Text>
-          </View>
-          <Text style={styles.affiliateChevron}>›</Text>
-        </TouchableOpacity>
 
         <View style={styles.historyCard}>
           <Text style={styles.historyTitle}>Credit History</Text>
@@ -323,38 +320,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-  affiliateCard: {
+  affiliatePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111111',
-    borderRadius: 16,
-    padding: 16,
+    justifyContent: 'center',
+    backgroundColor: '#E64A19',
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(230, 74, 25, 0.35)',
+    shadowColor: '#E64A19',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
-  affiliateBadge: {
-    color: '#E64A19',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  affiliateTitle: {
+  affiliatePillText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
+    flexShrink: 1,
   },
-  affiliateSubtitle: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  affiliateChevron: {
-    color: '#6B7280',
-    fontSize: 22,
-    marginLeft: 12,
+  affiliatePillChevron: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    marginLeft: 8,
+    opacity: 0.9,
   },
   historyCard: {
     backgroundColor: '#111111',
