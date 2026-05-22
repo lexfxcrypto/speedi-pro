@@ -55,13 +55,24 @@ function previousStep(from: number, pt: ProviderType | null): number {
   return from - 1;
 }
 
+// Wizard-side tile identifier. 'trade_concierge' is a special tile that
+// sets providerType='trade' + isTradeConcierge=true under the hood — it's
+// not a real ProviderType value on the User row.
+type ProviderTile = ProviderType | 'trade_concierge';
+
 const PROVIDER_OPTIONS: Array<{
-  key: ProviderType;
+  key: ProviderTile;
   title: string;
   subtext: string;
   color: string;
 }> = [
   { key: 'trade', title: 'Trade', subtext: 'Plumber, electrician, builder…', color: THEME_TRADE },
+  {
+    key: 'trade_concierge',
+    title: 'Trade Concierge',
+    subtext: 'Local generalist — covers many trades',
+    color: THEME_TRADE,
+  },
   { key: 'service', title: 'Service', subtext: 'Beauty, fitness, tutoring…', color: THEME_SERVICE },
   { key: 'sports', title: 'Sports', subtext: 'Venues, coaching, bookings…', color: THEME_SPORTS },
 ];
@@ -115,6 +126,7 @@ export default function Wizard() {
     SHOW_COMPANIES ? null : 'sole_trader',
   );
   const [providerType, setProviderType] = useState<ProviderType | null>(null);
+  const [isTradeConcierge, setIsTradeConcierge] = useState(false);
   const [premisesMode, setPremisesMode] = useState<PremisesMode | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showOtherInput, setShowOtherInput] = useState(false);
@@ -152,9 +164,18 @@ export default function Wizard() {
     setStep(nextStep(1, providerType));
   };
 
-  const handleProviderType = (pt: ProviderType) => {
-    setProviderType(pt);
-    setStep(nextStep(2, pt));
+  const handleProviderType = (tile: ProviderTile) => {
+    if (tile === 'trade_concierge') {
+      // Concierge runs through the standard 'trade' flow; the boolean
+      // flag drives map styling + customer-facing labelling later.
+      setProviderType('trade');
+      setIsTradeConcierge(true);
+      setStep(nextStep(2, 'trade'));
+      return;
+    }
+    setProviderType(tile);
+    setIsTradeConcierge(false);
+    setStep(nextStep(2, tile));
   };
 
   const handlePremisesMode = (pm: PremisesMode) => {
@@ -255,6 +276,7 @@ export default function Wizard() {
       const payload = {
         signupIntent,
         providerType,
+        isTradeConcierge: providerType === 'trade' ? isTradeConcierge : false,
         premisesMode: providerType === 'sports' ? 'fixed' : premisesMode,
         categoryMain: isOther ? otherText.trim() : selectedCategory,
         isCustomCategory: isOther,
@@ -383,7 +405,12 @@ export default function Wizard() {
             <View>
               <Text style={styles.heading}>What are you?</Text>
               {PROVIDER_OPTIONS.map((opt) => {
-                const selected = providerType === opt.key;
+                // The two trade tiles share providerType='trade'; use the
+                // concierge flag to disambiguate which tile is selected.
+                const selected =
+                  opt.key === 'trade_concierge'
+                    ? providerType === 'trade' && isTradeConcierge
+                    : providerType === opt.key && !(opt.key === 'trade' && isTradeConcierge);
                 return (
                   <TouchableOpacity
                     key={opt.key}
@@ -489,7 +516,11 @@ export default function Wizard() {
                 />
               ) : (
                 <>
-                  <Text style={styles.step5Subtext}>Select all that apply</Text>
+                  <Text style={styles.step5Subtext}>
+                    {isTradeConcierge
+                      ? 'Pick everything you can help with — customers will see you in any of these filters.'
+                      : 'Select all that apply'}
+                  </Text>
                   <View style={styles.pillWrap}>
                     {jobsForCategory.map((job) => {
                       const selected = selectedJobs.includes(job);
