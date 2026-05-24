@@ -45,13 +45,28 @@ function getTheme(pt: ProviderType | null): string {
   return THEME_DEFAULT;
 }
 
-function nextStep(from: number, pt: ProviderType | null): number {
+function nextStep(
+  from: number,
+  pt: ProviderType | null,
+  isConcierge = false,
+): number {
   if (from === 2 && pt === 'sports') return 4;
+  // Trade concierge skips the single-category picker (step 4) entirely —
+  // they pick everything they cover on a flat multi-category list at
+  // step 5 instead.
+  if (from === 3 && pt === 'trade' && isConcierge) return 5;
   return from + 1;
 }
 
-function previousStep(from: number, pt: ProviderType | null): number {
+function previousStep(
+  from: number,
+  pt: ProviderType | null,
+  isConcierge = false,
+): number {
   if (from === 4 && pt === 'sports') return 2;
+  // Mirror nextStep's skip — back from step 5 lands on step 3 when
+  // we're on the concierge path.
+  if (from === 5 && pt === 'trade' && isConcierge) return 3;
   return from - 1;
 }
 
@@ -153,7 +168,14 @@ export default function Wizard() {
 
   const canContinue = (() => {
     if (step === 4) return !!selectedCategory || !!otherText.trim();
-    if (step === 5) return true;
+    if (step === 5) {
+      // Concierge path skipped step 4 — require at least one trade
+      // ticked across the multi-category list before letting them
+      // advance. Without this, a concierge could land on the profile
+      // step with empty trades[] and no waitlist matching.
+      if (isTradeConcierge) return selectedJobs.length > 0;
+      return true;
+    }
     if (step === 6) return !!name.trim() && !!postcode.trim();
     return true;
   })();
@@ -180,7 +202,7 @@ export default function Wizard() {
 
   const handlePremisesMode = (pm: PremisesMode) => {
     setPremisesMode(pm);
-    setStep(nextStep(3, providerType));
+    setStep(nextStep(3, providerType, isTradeConcierge));
   };
 
   const handleCategoryTap = (catName: string) => {
@@ -201,11 +223,11 @@ export default function Wizard() {
   };
 
   const handleContinue = () => {
-    setStep(nextStep(step, providerType));
+    setStep(nextStep(step, providerType, isTradeConcierge));
   };
 
   const handleBack = () => {
-    setStep(previousStep(step, providerType));
+    setStep(previousStep(step, providerType, isTradeConcierge));
   };
 
   const handleAskLocation = async () => {
@@ -278,7 +300,15 @@ export default function Wizard() {
         providerType,
         isTradeConcierge: providerType === 'trade' ? isTradeConcierge : false,
         premisesMode: providerType === 'sports' ? 'fixed' : premisesMode,
-        categoryMain: isOther ? otherText.trim() : selectedCategory,
+        // Concierge users skipped the single-category picker — set a
+        // sentinel "Trade Concierge" as their primary category so the
+        // map pin has a sensible label, but their actual coverage lives
+        // in `trades[]` which is derived from selectedJobs.
+        categoryMain: isTradeConcierge
+          ? 'Trade Concierge'
+          : isOther
+            ? otherText.trim()
+            : selectedCategory,
         isCustomCategory: isOther,
         jobTypes: providerType === 'service' ? [] : selectedJobs,
         servicesOffered:
@@ -502,8 +532,12 @@ export default function Wizard() {
 
           {step === 5 && (
             <View>
-              <Text style={styles.heading}>What specifically do you offer?</Text>
-              {isOtherCategoryPath ? (
+              <Text style={styles.heading}>
+                {isTradeConcierge
+                  ? 'Which trades can you cover?'
+                  : 'What specifically do you offer?'}
+              </Text>
+              {isOtherCategoryPath && !isTradeConcierge ? (
                 <TextInput
                   style={styles.multilineInput}
                   placeholder="Describe what you offer in a sentence or two"
@@ -518,38 +552,93 @@ export default function Wizard() {
                 <>
                   <Text style={styles.step5Subtext}>
                     {isTradeConcierge
-                      ? 'Pick everything you can help with — customers will see you in any of these filters.'
+                      ? 'Pick everything you can help with — customers will see you under every filter you tick, and you’ll get notified for waitlist requests across all of them.'
                       : 'Select all that apply'}
                   </Text>
-                  <View style={styles.pillWrap}>
-                    {jobsForCategory.map((job) => {
-                      const selected = selectedJobs.includes(job);
-                      const label =
-                        premisesMode === 'mobile' && job.startsWith('Mobile ')
-                          ? job.slice(7)
-                          : job;
-                      return (
-                        <TouchableOpacity
-                          key={job}
-                          style={[
-                            styles.choicePill,
-                            selected && { backgroundColor: theme, borderColor: theme },
-                          ]}
-                          onPress={() => toggleJob(job)}
-                          activeOpacity={0.85}
-                        >
-                          <Text
+                  {isTradeConcierge ? (
+                    // Concierge: flat list across EVERY trade category,
+                    // grouped under category headers. Customer sees the pin
+                    // under any matching filter and waitlist notifications
+                    // fan out across the whole `trades[]` array on the User
+                    // row (see ~/Code/speedi/src/lib/tradeMatchesRequest.ts).
+                    <View>
+                      {Object.entries(TRADE_CATEGORIES).map(
+                        ([catName, jobs]) => (
+                          <View key={catName} style={styles.conciergeCatBlock}>
+                            <Text style={styles.conciergeCatHeader}>
+                              {catName}
+                            </Text>
+                            <View style={styles.pillWrap}>
+                              {(jobs as string[]).map((job) => {
+                                const selected = selectedJobs.includes(job);
+                                return (
+                                  <TouchableOpacity
+                                    key={job}
+                                    style={[
+                                      styles.choicePill,
+                                      selected && {
+                                        backgroundColor: theme,
+                                        borderColor: theme,
+                                      },
+                                    ]}
+                                    onPress={() => toggleJob(job)}
+                                    activeOpacity={0.85}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.choicePillText,
+                                        selected && { color: '#FFFFFF' },
+                                      ]}
+                                    >
+                                      {job}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        ),
+                      )}
+                      <Text style={styles.conciergeCount}>
+                        {selectedJobs.length} trade
+                        {selectedJobs.length === 1 ? '' : 's'} selected
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.pillWrap}>
+                      {jobsForCategory.map((job) => {
+                        const selected = selectedJobs.includes(job);
+                        const label =
+                          premisesMode === 'mobile' &&
+                          job.startsWith('Mobile ')
+                            ? job.slice(7)
+                            : job;
+                        return (
+                          <TouchableOpacity
+                            key={job}
                             style={[
-                              styles.choicePillText,
-                              selected && { color: '#FFFFFF' },
+                              styles.choicePill,
+                              selected && {
+                                backgroundColor: theme,
+                                borderColor: theme,
+                              },
                             ]}
+                            onPress={() => toggleJob(job)}
+                            activeOpacity={0.85}
                           >
-                            {label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                            <Text
+                              style={[
+                                styles.choicePillText,
+                                selected && { color: '#FFFFFF' },
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
                 </>
               )}
             </View>
@@ -915,6 +1004,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: -16,
     marginBottom: 16,
+  },
+  conciergeCatBlock: { marginBottom: 18 },
+  conciergeCatHeader: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  conciergeCount: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 8,
   },
   choicePill: {
     backgroundColor: 'transparent',
