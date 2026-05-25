@@ -581,7 +581,14 @@ export default function Home() {
         clearInterval(locationInterval.current);
         locationInterval.current = null;
       }
-      stopLiveLocationTracking();
+      // Intentionally do NOT call stopLiveLocationTracking() here. The
+      // background task should survive tab switches / brief unmounts
+      // while tlState is still green — iOS will keep it alive across
+      // app suspension on its own. The else-branch above stops the
+      // task on the actual state transitions (green → amber/red/off).
+      // Stopping it in cleanup killed tracking the moment the user
+      // navigated away from the home tab — the bug Alex spotted with
+      // the 200-mile test drivers.
     };
   }, [tlState]);
 

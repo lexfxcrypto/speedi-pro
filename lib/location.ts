@@ -39,6 +39,13 @@ TaskManager.defineTask(LIVE_LOCATION_TASK, async ({ data, error }) => {
   try {
     const authToken = await SecureStore.getItemAsync('auth_token');
     if (!authToken) return;
+    // Location-only ping: deliberately omit `availability` so the
+    // server doesn't reset the pro's state. If they toggled amber/red
+    // between iOS firing this task and us reaching here, a forced
+    // 'AVAILABLE' would silently bounce them back to green.
+    // The server's /api/native/availability route accepts this shape
+    // and only updates lat/lng + availabilityUpdatedAt when
+    // availability is absent.
     await fetch(`${API_BASE}/api/native/availability`, {
       method: 'POST',
       headers: {
@@ -46,7 +53,6 @@ TaskManager.defineTask(LIVE_LOCATION_TASK, async ({ data, error }) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        availability: 'AVAILABLE',
         lat: latitude,
         lng: longitude,
       }),
@@ -81,8 +87,14 @@ export async function startLiveLocationTracking(): Promise<LiveTrackingResult> {
     if (alreadyRunning) return { ok: true };
 
     await Location.startLocationUpdatesAsync(LIVE_LOCATION_TASK, {
-      accuracy: Location.Accuracy.Balanced,
-      distanceInterval: 500,
+      // Balanced (wifi+cell) is too sluggish for drivers covering
+      // ground at speed — pins lagged badly during a 200-mile test
+      // run. High uses GPS hardware directly: better updates while
+      // moving, modest battery cost vs BestForNavigation. Pair with
+      // a tighter distanceInterval so motorway speeds still trigger
+      // pings before the deferred batching kicks in.
+      accuracy: Location.Accuracy.High,
+      distanceInterval: 250,
       timeInterval: 60_000,
       deferredUpdatesInterval: 60_000,
       activityType: Location.ActivityType.AutomotiveNavigation,
