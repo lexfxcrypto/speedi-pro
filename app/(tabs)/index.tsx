@@ -224,6 +224,12 @@ export default function Home() {
     title: string;
     endTime: string;
   } | null>(null);
+  // Next upcoming event today — drives the "Today's Schedule" card
+  // subtitle. Null = nothing more today / calendar not connected.
+  const [nextEvent, setNextEvent] = useState<{
+    title: string;
+    time: string;
+  } | null>(null);
   const [dismissedEventId, setDismissedEventId] = useState<string | null>(null);
   const [messageAlert, setMessageAlert] = useState<{
     id: string;
@@ -325,7 +331,10 @@ export default function Home() {
       try {
         const res = await fetchWithAuth(`${API}/api/native/calendar`);
         const data = await res.json();
-        if (!data?.connected || !Array.isArray(data.todayEvents)) return;
+        if (!data?.connected || !Array.isArray(data.todayEvents)) {
+          setNextEvent(null);
+          return;
+        }
         const now = new Date();
         const live = data.todayEvents.find((e: { time: string; endTime: string }) => {
           const start = new Date(e.time);
@@ -337,6 +346,14 @@ export default function Home() {
         } else {
           setCurrentEvent(null);
         }
+        // First event after "now" that's still in the future — drives
+        // the Today's Schedule card subtitle. Excludes the live one
+        // (which is rendered separately above with a countdown).
+        const upcoming = (data.todayEvents as { title: string; time: string }[])
+          .map((e) => ({ ...e, start: new Date(e.time) }))
+          .filter((e) => !isNaN(e.start.getTime()) && e.start > now)
+          .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
+        setNextEvent(upcoming ? { title: upcoming.title, time: upcoming.time } : null);
       } catch (e) {
         console.log('Calendar load failed:', e);
       }
@@ -1053,7 +1070,11 @@ export default function Home() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.calendarTitle}>Today's Schedule</Text>
-            <Text style={styles.calendarSubtitle}>Next: 12:00 PM · Boiler Service</Text>
+            <Text style={styles.calendarSubtitle}>
+              {nextEvent
+                ? `Next: ${new Date(nextEvent.time).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })} · ${nextEvent.title}`
+                : 'Tap to view your day'}
+            </Text>
           </View>
           <Text style={styles.calendarChevron}>›</Text>
         </TouchableOpacity>
