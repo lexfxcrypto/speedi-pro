@@ -10,7 +10,7 @@
  * purchase confirmation modal shows.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -54,16 +54,32 @@ export default function CreditsPurchaseSheet({
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Tracks whether we've ever called connectIap on this mount. Critical:
+  // calling disconnectIap (→ endConnection) before initConnection has
+  // landed throws an iOS-level guard violation that JS can't catch —
+  // crashes the whole app, not just the sheet. The previous code fired
+  // disconnectIap on every render where !visible, including the first
+  // mount, which was the cause of the rewards-tab crash in 1.0.1/1.0.2.
+  const iapConnectedRef = useRef(false);
 
   // Initialise IAP connection on first open, tear down on close.
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      // Only attempt disconnect if we actually connected first. On
+      // first mount this is false → no native call → no guard trip.
+      if (iapConnectedRef.current) {
+        iapConnectedRef.current = false;
+        disconnectIap();
+      }
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
         setLoadingProducts(true);
         setLoadError(null);
         await connectIap();
+        iapConnectedRef.current = true;
         const fetched = await fetchProducts();
         if (cancelled) return;
         // Sort by credit count ascending so the smallest pack renders first.
@@ -87,12 +103,6 @@ export default function CreditsPurchaseSheet({
     return () => {
       cancelled = true;
     };
-  }, [visible]);
-
-  useEffect(() => {
-    if (!visible) {
-      disconnectIap();
-    }
   }, [visible]);
 
   const handleBuy = async (productId: string) => {
