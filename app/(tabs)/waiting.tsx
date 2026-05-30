@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,7 +19,10 @@ import { fetchWithAuth } from '../../lib/auth';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
 import { normalisePhone } from '../../lib/phone';
-import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
+// Lazy-mount: keep expo-iap's StoreKit observers out of the JS bundle
+// until the user actually wants to buy credits. Same Privacy guard
+// risk as the rewards tab. See app/(tabs)/rewards.tsx for context.
+const CreditsPurchaseSheet = lazy(() => import('../../components/CreditsPurchaseSheet'));
 
 const API = 'https://www.speeditrades.com';
 
@@ -551,10 +554,14 @@ export default function Waiting() {
         </TouchableOpacity>
       </ScrollView>
 
-      <CreditsPurchaseSheet
-        visible={showPurchaseSheet}
-        onClose={() => setShowPurchaseSheet(false)}
-      />
+      {showPurchaseSheet && (
+        <Suspense fallback={null}>
+          <CreditsPurchaseSheet
+            visible={showPurchaseSheet}
+            onClose={() => setShowPurchaseSheet(false)}
+          />
+        </Suspense>
+      )}
 
       <RefundConnectionModal
         job={refundingJob}

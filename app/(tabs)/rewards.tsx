@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -12,7 +12,14 @@ import {
 } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
-import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
+
+// Lazy-mount the IAP sheet. expo-iap's native module pulls in StoreKit
+// observers on first JS-side require, which on certain iOS builds
+// trips a Privacy guard (EXC_GUARD / LIBXPC / bug_type 308) and kills
+// the app the moment the user taps the Rewards tab. Importing only
+// when the user actually wants to buy credits keeps StoreKit
+// completely uninvolved with regular tab navigation.
+const CreditsPurchaseSheet = lazy(() => import('../../components/CreditsPurchaseSheet'));
 
 const API = 'https://www.speeditrades.com';
 
@@ -219,10 +226,17 @@ export default function Rewards() {
         )}
       </ScrollView>
 
-      <CreditsPurchaseSheet
-        visible={showPurchaseSheet}
-        onClose={() => setShowPurchaseSheet(false)}
-      />
+      {/* Only mount the IAP sheet (and pull in expo-iap) once the user
+          has tapped Buy. Avoids loading StoreKit on every Rewards
+          visit. */}
+      {showPurchaseSheet && (
+        <Suspense fallback={null}>
+          <CreditsPurchaseSheet
+            visible={showPurchaseSheet}
+            onClose={() => setShowPurchaseSheet(false)}
+          />
+        </Suspense>
+      )}
     </SafeAreaView>
   );
 }
