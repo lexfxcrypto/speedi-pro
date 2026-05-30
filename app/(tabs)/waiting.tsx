@@ -5,10 +5,13 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -41,6 +44,8 @@ type Job = {
   customerPhone: string | null;
   customerEmail: string | null;
   acceptedAt: string | null;
+  /** null = no refund filed yet; otherwise PENDING | APPROVED | REJECTED. */
+  refundStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
 };
 
 type MyProfile = {
@@ -93,6 +98,7 @@ export default function Waiting() {
   const [completing, setCompleting] = useState<string | null>(null);
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [refundingJob, setRefundingJob] = useState<Job | null>(null);
 
   const loadRequests = async () => {
     try {
@@ -367,6 +373,41 @@ export default function Waiting() {
                       <Text style={styles.deleteText}>Delete</Text>
                     </TouchableOpacity>
                   </View>
+                  {/* Refund "reclaim credit" footer — quiet by design.
+                      Only visible when no refund has been filed yet;
+                      once filed, replaced with a status pill. */}
+                  {job.refundStatus === null ? (
+                    <TouchableOpacity
+                      style={styles.refundFooter}
+                      onPress={() => setRefundingJob(job)}
+                    >
+                      <Text style={styles.refundFooterText}>
+                        Report this connection · reclaim credit
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.refundFooter}>
+                      <Text
+                        style={[
+                          styles.refundFooterText,
+                          {
+                            color:
+                              job.refundStatus === 'APPROVED'
+                                ? '#22c55e'
+                                : job.refundStatus === 'REJECTED'
+                                ? '#ef4444'
+                                : '#f59e0b',
+                          },
+                        ]}
+                      >
+                        {job.refundStatus === 'APPROVED'
+                          ? 'Credit refunded ✓'
+                          : job.refundStatus === 'REJECTED'
+                          ? 'Refund declined'
+                          : 'Refund request under review'}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               );
             })
@@ -514,7 +555,168 @@ export default function Waiting() {
         visible={showPurchaseSheet}
         onClose={() => setShowPurchaseSheet(false)}
       />
+
+      <RefundConnectionModal
+        job={refundingJob}
+        onClose={() => setRefundingJob(null)}
+        onSubmitted={() => {
+          setRefundingJob(null);
+          loadJobs();
+        }}
+      />
     </SafeAreaView>
+  );
+}
+
+const REFUND_REASONS: Array<{ value: string; label: string }> = [
+  { value: 'NEVER_REPLIED', label: 'Customer never replied' },
+  { value: 'PRO_ON_PRO', label: 'Another tradesperson — not a real customer' },
+  { value: 'SPAM', label: 'Spam or harassment' },
+  { value: 'FAKE_JOB', label: 'Made-up job' },
+  { value: 'OTHER', label: 'Other (describe below)' },
+];
+
+function RefundConnectionModal({
+  job,
+  onClose,
+  onSubmitted,
+}: {
+  job: Job | null;
+  onClose: () => void;
+  onSubmitted: () => void;
+}) {
+  const [reason, setReason] = useState<string>('NEVER_REPLIED');
+  const [reasonNote, setReasonNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  // Reset when the modal opens for a new job.
+  useEffect(() => {
+    if (job) {
+      setReason('NEVER_REPLIED');
+      setReasonNote('');
+      setError('');
+    }
+  }, [job?.id]);
+
+  if (!job) return null;
+
+  const handleSubmit = async () => {
+    if (reason === 'OTHER' && !reasonNote.trim()) {
+      setError('Please describe the issue.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetchWithAuth(`${API}/api/credit-refunds`, {
+        method: 'POST',
+        body: JSON.stringify({
+          waitingRequestId: job.id,
+          reason,
+          reasonNote: reasonNote.trim() || undefined,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) {
+        setError(body.error ?? "Couldn't file the refund");
+      } else {
+        onSubmitted();
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.refundBackdrop} onPress={onClose}>
+        <Pressable style={styles.refundSheet} onPress={() => {}}>
+          <View style={styles.handle} />
+          <View style={styles.refundHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.refundTitle}>Report this connection</Text>
+              <Text style={styles.refundSubtitle} numberOfLines={2}>
+                {job.jobType}
+                {job.description ? ` · "${job.description.slice(0, 60)}${job.description.length > 60 ? '…' : ''}"` : ''}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.refundClose}>×</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ paddingVertical: 4 }}>
+            {REFUND_REASONS.map((r) => {
+              const selected = reason === r.value;
+              return (
+                <TouchableOpacity
+                  key={r.value}
+                  style={[styles.refundReason, selected && styles.refundReasonSelected]}
+                  onPress={() => setReason(r.value)}
+                >
+                  <View
+                    style={[
+                      styles.refundRadio,
+                      selected && styles.refundRadioSelected,
+                    ]}
+                  >
+                    {selected && <View style={styles.refundRadioDot} />}
+                  </View>
+                  <Text
+                    style={[
+                      styles.refundReasonText,
+                      selected && styles.refundReasonTextSelected,
+                    ]}
+                  >
+                    {r.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            <TextInput
+              value={reasonNote}
+              onChangeText={setReasonNote}
+              placeholder={
+                reason === 'OTHER'
+                  ? 'Describe what happened (required)'
+                  : 'Anything we should know (optional)'
+              }
+              placeholderTextColor="#6B7280"
+              multiline
+              numberOfLines={3}
+              maxLength={2000}
+              style={styles.refundNote}
+            />
+
+            {error ? <Text style={styles.refundError}>{error}</Text> : null}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[styles.refundSubmit, submitting && styles.disabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.refundSubmitText}>Send refund request</Text>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.refundFooterCopy}>
+            Speedi reviews every refund. Approved cases get the credit back within a day.
+          </Text>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -777,5 +979,148 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  refundFooter: {
+    paddingTop: 10,
+    marginTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+  },
+  refundFooterText: {
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  refundBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  refundSheet: {
+    backgroundColor: '#0A0A0A',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 22,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#3F3F46',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  refundHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+  },
+  refundTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  refundSubtitle: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 3,
+  },
+  refundClose: {
+    color: '#6B7280',
+    fontSize: 24,
+    fontWeight: '600',
+    paddingHorizontal: 4,
+  },
+  refundReason: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 6,
+    gap: 10,
+  },
+  refundReasonSelected: {
+    borderColor: 'rgba(230,74,25,0.5)',
+    backgroundColor: 'rgba(230,74,25,0.1)',
+  },
+  refundRadio: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#3F3F46',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refundRadioSelected: {
+    borderColor: '#E64A19',
+  },
+  refundRadioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E64A19',
+  },
+  refundReasonText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  refundReasonTextSelected: {
+    color: '#FFCBB8',
+    fontWeight: '700',
+  },
+  refundNote: {
+    marginTop: 6,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    backgroundColor: '#111111',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#FFFFFF',
+    fontSize: 14,
+    minHeight: 64,
+    textAlignVertical: 'top',
+  },
+  refundError: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '700',
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  refundSubmit: {
+    backgroundColor: '#E64A19',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  refundSubmitText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  refundFooterCopy: {
+    color: '#6B7280',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 14,
   },
 });
