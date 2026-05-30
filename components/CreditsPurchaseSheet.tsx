@@ -33,7 +33,7 @@ import { IAP_PRODUCT_IDS } from "../lib/featureFlags";
 
 const CREDIT_AMOUNT_BY_PRODUCT: Record<string, number> = {
   "com.speeditrades.speedipro.credits_10": 10,
-  "com.speeditrades.speedipro.credits_20": 20,
+  "com.speeditrades.speedipro.credits_25": 25,
   "com.speeditrades.speedipro.credits_50": 50,
 };
 
@@ -128,9 +128,14 @@ export default function CreditsPurchaseSheet({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
-          <Text style={styles.title}>Buy credits</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Buy credits</Text>
+            <View style={styles.introBadge}>
+              <Text style={styles.introBadgeText}>INTRO PRICING</Text>
+            </View>
+          </View>
           <Text style={styles.subtitle}>
-            1 credit unlocks one customer contact when you respond to a job.
+            1 credit unlocks one customer contact when you respond to a job. Bigger packs save more per credit.
           </Text>
 
           {loadingProducts ? (
@@ -206,10 +211,27 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 12,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "800",
+  },
+  introBadge: {
+    backgroundColor: "#16a34a",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  introBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
   subtitle: {
     color: "#9CA3AF",

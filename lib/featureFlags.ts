@@ -29,10 +29,18 @@ export const SHOW_IAP_CREDITS = true;
  * Store Connect → Monetization → In-App Purchases for the speedi-pro
  * app exactly. Same list lives server-side in /lib/iap.ts —
  * PRODUCT_CREDIT_MAP. Keep them in sync.
+ *
+ * Intro pricing pack sizes: 10 / 25 / 50. Middle pack shifted from 20
+ * → 25 to match the web. credits_25 is a NEW product that must be
+ * created in App Store Connect before the next build hits the store.
+ * Apple lets you change price tier on the other two without resubmit:
+ *   credits_10 → £39.99 (£4.00/credit)
+ *   credits_25 → £94.99 (£3.80/credit)
+ *   credits_50 → £179.99 (£3.60/credit)
  */
 export const IAP_PRODUCT_IDS = [
   "com.speeditrades.speedipro.credits_10",
-  "com.speeditrades.speedipro.credits_20",
+  "com.speeditrades.speedipro.credits_25",
   "com.speeditrades.speedipro.credits_50",
 ] as const;
 
