@@ -128,6 +128,10 @@ type ApprovedDisplay = {
   subtitle: string;
   deepLink: string;
   borderColor: string;
+  /** True only for the active + credentials-verified state, where the
+   *  green-tick badge image is rendered next to the title in place of
+   *  a unicode emoji. */
+  showCheck?: boolean;
 };
 
 function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
@@ -138,10 +142,11 @@ function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
   if (status === 'active' && credStatus === 'verified') {
     const tierLabel = tier === 'premises' ? 'Premises' : 'Mobile';
     return {
-      title: '✅ Speedi Approved',
+      title: 'Speedi Approved',
       subtitle: `Active · ${tierLabel}`,
       deepLink: `${APPROVED_BASE_URL}/dashboard/approved`,
       borderColor: '#00C67A',
+      showCheck: true,
     };
   }
 
@@ -1039,7 +1044,16 @@ export default function Home() {
                 style={[styles.approvedCard, { borderLeftColor: display.borderColor }]}
                 onPress={() => router.push('/approved')}
               >
-                <Text style={styles.approvedTitle}>{display.title}</Text>
+                <View style={styles.approvedTitleRow}>
+                  {display.showCheck && (
+                    <Image
+                      source={require('../../assets/speedi-approved-check.png')}
+                      style={styles.approvedCheck}
+                      accessibilityLabel="Speedi Approved verified"
+                    />
+                  )}
+                  <Text style={styles.approvedTitle}>{display.title}</Text>
+                </View>
                 <Text style={styles.approvedSubtitle}>{display.subtitle}</Text>
               </TouchableOpacity>
             );
@@ -1379,6 +1393,16 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#00C67A',
     marginBottom: 16,
+  },
+  approvedTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  approvedCheck: {
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
   },
   approvedTitle: {
     color: '#FFFFFF',
