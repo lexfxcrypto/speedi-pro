@@ -33,6 +33,8 @@ type Profile = {
   trade: string | null;
   trades: string[];
   categoryMain: string | null;
+  servicesOffered: string[];
+  serviceCategories: string[];
   bio: string | null;
   website: string | null;
   yearsExperience: number | null;
@@ -384,6 +386,10 @@ export default function Profile() {
     profile?.trade ||
     (profile?.trades?.length
       ? profile.trades.join(' · ')
+      : profile?.servicesOffered?.length
+      ? profile.servicesOffered.join(' · ')
+      : profile?.categoryMain
+      ? profile.categoryMain
       : getProviderNoun(profile, { titleCase: true }));
 
   const coverageLabel = profile?.coverageRadius ? `${profile.coverageRadius}mi radius` : null;
