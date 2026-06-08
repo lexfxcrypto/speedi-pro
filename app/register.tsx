@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { PasswordInput } from '../components/PasswordInput';
+import { PhoneInputWithCountry } from '../components/PhoneInputWithCountry';
 import { register } from '../lib/auth';
 
 export default function Register() {
@@ -114,13 +115,9 @@ export default function Register() {
             editable={!loading}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Phone number"
-            placeholderTextColor="#6B7280"
+          <PhoneInputWithCountry
             value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
+            onChange={setPhoneNumber}
             editable={!loading}
           />
 
