@@ -27,7 +27,7 @@ import { TRADE_CATEGORIES } from '../../lib/trades';
 const API_BASE = 'https://www.speeditrades.com';
 
 type SignupIntent = 'sole_trader' | 'company_owner';
-type ProviderType = 'trade' | 'service' | 'sports';
+type ProviderType = 'trade' | 'service' | 'sports' | 'merchant';
 type PremisesMode = 'fixed' | 'mobile' | 'both';
 type LocationPermissionStatus = 'unasked' | 'granted' | 'denied';
 
@@ -51,6 +51,9 @@ function nextStep(
   isConcierge = false,
 ): number {
   if (from === 2 && pt === 'sports') return 4;
+  // Merchant path: skip premises (always fixed) + category picker
+  // (they pick multiple trades stocked on step 5 instead). 2 → 5.
+  if (from === 2 && pt === 'merchant') return 5;
   // Trade concierge skips the single-category picker (step 4) entirely —
   // they pick everything they cover on a flat multi-category list at
   // step 5 instead.
@@ -67,6 +70,8 @@ function previousStep(
   // Mirror nextStep's skip — back from step 5 lands on step 3 when
   // we're on the concierge path.
   if (from === 5 && pt === 'trade' && isConcierge) return 3;
+  // Merchant: mirror the forward skip. Back from step 5 → step 2.
+  if (from === 5 && pt === 'merchant') return 2;
   return from - 1;
 }
 
@@ -90,6 +95,12 @@ const PROVIDER_OPTIONS: Array<{
   },
   { key: 'service', title: 'Service', subtext: 'Beauty, fitness, tutoring…', color: THEME_SERVICE },
   { key: 'sports', title: 'Sports', subtext: 'Venues, coaching, bookings…', color: THEME_SPORTS },
+  {
+    key: 'merchant',
+    title: 'Merchant',
+    subtext: 'Fixed premises — plumbers merchant, wholesaler, yard',
+    color: THEME_TRADE,
+  },
 ];
 
 const PREMISES_OPTIONS: Array<{ key: PremisesMode; title: string; subtext: string }> = [
@@ -151,6 +162,17 @@ export default function Wizard() {
   const [name, setName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [yearsExp, setYearsExp] = useState('');
+  // Merchant-only fields. Only populated + submitted when the Merchant
+  // tile was picked on step 2 — otherwise they stay empty and the
+  // backend ignores them. Repurpose the existing selectedJobs state
+  // for merchant's trades-stocked multi-select so we don't parallel-
+  // duplicate state.
+  const [merchantAddress, setMerchantAddress] = useState('');
+  const [merchantPhone, setMerchantPhone] = useState('');
+  const [merchantEmail, setMerchantEmail] = useState('');
+  const [merchantWebsite, setMerchantWebsite] = useState('');
+  const [merchantHours, setMerchantHours] = useState('');
+  const [merchantDescription, setMerchantDescription] = useState('');
   const [postcode, setPostcode] = useState('');
   const [radius, setRadius] = useState('10');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -169,6 +191,16 @@ export default function Wizard() {
   const canContinue = (() => {
     if (step === 4) return !!selectedCategory || !!otherText.trim();
     if (step === 5) {
+      // Merchant path: require the essential public-facing fields
+      // (address + phone) + at least one trade stocked. Description
+      // and email are optional at signup; they can fill them later.
+      if (providerType === 'merchant') {
+        return (
+          !!merchantAddress.trim() &&
+          !!merchantPhone.trim() &&
+          selectedJobs.length > 0
+        );
+      }
       // Concierge path skipped step 4 — require at least one trade
       // ticked across the multi-category list before letting them
       // advance. Without this, a concierge could land on the profile
@@ -193,6 +225,15 @@ export default function Wizard() {
       setProviderType('trade');
       setIsTradeConcierge(true);
       setStep(nextStep(2, 'trade'));
+      return;
+    }
+    if (tile === 'merchant') {
+      // Merchants always have fixed premises — auto-set so the
+      // backend + skipped step 3 stay consistent.
+      setProviderType('merchant');
+      setPremisesMode('fixed');
+      setIsTradeConcierge(false);
+      setStep(nextStep(2, 'merchant'));
       return;
     }
     setProviderType(tile);
@@ -295,27 +336,55 @@ export default function Wizard() {
 
     try {
       const isOther = showOtherInput;
+      const isMerchant = providerType === 'merchant';
       const payload = {
         signupIntent,
         providerType,
         isTradeConcierge: providerType === 'trade' ? isTradeConcierge : false,
-        premisesMode: providerType === 'sports' ? 'fixed' : premisesMode,
+        isMerchant,
+        // Merchants are always fixed premises. Sports pre-fixed for
+        // legacy reasons. Everything else uses whatever the user picked.
+        premisesMode:
+          isMerchant || providerType === 'sports' ? 'fixed' : premisesMode,
         // Concierge users skipped the single-category picker — set a
         // sentinel "Trade Concierge" as their primary category so the
         // map pin has a sensible label, but their actual coverage lives
         // in `trades[]` which is derived from selectedJobs.
-        categoryMain: isTradeConcierge
-          ? 'Trade Concierge'
-          : isOther
-            ? otherText.trim()
-            : selectedCategory,
-        isCustomCategory: isOther,
-        jobTypes: providerType === 'service' ? [] : selectedJobs,
+        // Merchants: sentinel "Merchant" for the same reason.
+        categoryMain: isMerchant
+          ? 'Merchant'
+          : isTradeConcierge
+            ? 'Trade Concierge'
+            : isOther
+              ? otherText.trim()
+              : selectedCategory,
+        isCustomCategory: isOther && !isMerchant,
+        // Merchant's selectedJobs = trades they stock. Cross-write to
+        // trades[]/trade so filter matching works (same pattern as
+        // Trade Concierge). service/sports don't set jobTypes.
+        jobTypes:
+          providerType === 'service'
+            ? []
+            : selectedJobs,
         servicesOffered:
           providerType === 'service' || providerType === 'sports'
             ? selectedJobs
             : undefined,
         otherJobDescription: isOther ? otherJobDescription.trim() : undefined,
+        // Merchant-specific fields — backend ignores them for non-merchant
+        // providerTypes, safe to always send.
+        merchantAddress: isMerchant ? merchantAddress.trim() : undefined,
+        merchantPhone: isMerchant ? merchantPhone.trim() : undefined,
+        merchantEmail: isMerchant
+          ? merchantEmail.trim() || undefined
+          : undefined,
+        merchantWebsite: isMerchant
+          ? merchantWebsite.trim() || undefined
+          : undefined,
+        merchantHours: isMerchant ? merchantHours.trim() : undefined,
+        merchantDescription: isMerchant
+          ? merchantDescription.trim()
+          : undefined,
         name: name.trim(),
         businessName: businessName.trim() || undefined,
         yearsExp,
@@ -530,7 +599,134 @@ export default function Wizard() {
             </View>
           )}
 
-          {step === 5 && (
+          {step === 5 && providerType === 'merchant' && (
+            <View>
+              <Text style={styles.heading}>Tell us about your business</Text>
+              <Text style={styles.step5Subtext}>
+                Merchants appear on the customer map with your address,
+                phone, opening hours and description all publicly
+                visible — no need for customers to message first.
+              </Text>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Business address</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. 24 Trade Park, Preston, PR1 1AA"
+                  placeholderTextColor="#6B7280"
+                  value={merchantAddress}
+                  onChangeText={setMerchantAddress}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Counter phone</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="01772 123456"
+                  placeholderTextColor="#6B7280"
+                  value={merchantPhone}
+                  onChangeText={setMerchantPhone}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Business email (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="orders@yourbusiness.co.uk"
+                  placeholderTextColor="#6B7280"
+                  value={merchantEmail}
+                  onChangeText={setMerchantEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Website (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="www.yourbusiness.co.uk"
+                  placeholderTextColor="#6B7280"
+                  value={merchantWebsite}
+                  onChangeText={setMerchantWebsite}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Opening hours</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Mon–Fri 7:30–17:00, Sat 8:00–12:00"
+                  placeholderTextColor="#6B7280"
+                  value={merchantHours}
+                  onChangeText={setMerchantHours}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Description</Text>
+                <TextInput
+                  style={styles.multilineInput}
+                  placeholder="Family-run plumbing + heating merchants. Same-day delivery within 15 miles. Trade counter on-site."
+                  placeholderTextColor="#6B7280"
+                  value={merchantDescription}
+                  onChangeText={setMerchantDescription}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              <Text style={[styles.step5Subtext, { marginTop: 24 }]}>
+                What supplies do you stock? Customers filtering by
+                trade will see you under every category you tick.
+              </Text>
+              {Object.entries(TRADE_CATEGORIES).map(([catName, jobs]) => (
+                <View key={catName} style={styles.conciergeCatBlock}>
+                  <Text style={styles.conciergeCatHeader}>{catName}</Text>
+                  <View style={styles.pillWrap}>
+                    {(jobs as string[]).map((job) => {
+                      const selected = selectedJobs.includes(job);
+                      return (
+                        <TouchableOpacity
+                          key={job}
+                          style={[
+                            styles.choicePill,
+                            selected && {
+                              backgroundColor: theme,
+                              borderColor: theme,
+                            },
+                          ]}
+                          onPress={() => toggleJob(job)}
+                          activeOpacity={0.85}
+                        >
+                          <Text
+                            style={[
+                              styles.choicePillText,
+                              selected && { color: '#FFFFFF' },
+                            ]}
+                          >
+                            {job}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+              <Text style={styles.conciergeCount}>
+                {selectedJobs.length} categor
+                {selectedJobs.length === 1 ? 'y' : 'ies'} stocked
+              </Text>
+            </View>
+          )}
+
+          {step === 5 && providerType !== 'merchant' && (
             <View>
               <Text style={styles.heading}>
                 {isTradeConcierge
