@@ -167,7 +167,16 @@ export default function Wizard() {
   // backend ignores them. Repurpose the existing selectedJobs state
   // for merchant's trades-stocked multi-select so we don't parallel-
   // duplicate state.
-  const [merchantAddress, setMerchantAddress] = useState('');
+  //
+  // Address is captured as structured components — number, street,
+  // town, county — instead of a single line, so the customer sheet
+  // can render a proper multi-line address block. Postcode still
+  // comes through the standard step-6 `postcode` field (which also
+  // drives lat/lng geocoding + delivery radius).
+  const [merchantBuilding, setMerchantBuilding] = useState('');
+  const [merchantStreet, setMerchantStreet] = useState('');
+  const [merchantTown, setMerchantTown] = useState('');
+  const [merchantCounty, setMerchantCounty] = useState('');
   const [merchantPhone, setMerchantPhone] = useState('');
   const [merchantEmail, setMerchantEmail] = useState('');
   const [merchantWebsite, setMerchantWebsite] = useState('');
@@ -196,7 +205,8 @@ export default function Wizard() {
       // and email are optional at signup; they can fill them later.
       if (providerType === 'merchant') {
         return (
-          !!merchantAddress.trim() &&
+          !!merchantStreet.trim() &&
+          !!merchantTown.trim() &&
           !!merchantPhone.trim() &&
           selectedJobs.length > 0
         );
@@ -373,7 +383,10 @@ export default function Wizard() {
         otherJobDescription: isOther ? otherJobDescription.trim() : undefined,
         // Merchant-specific fields — backend ignores them for non-merchant
         // providerTypes, safe to always send.
-        merchantAddress: isMerchant ? merchantAddress.trim() : undefined,
+        merchantBuilding: isMerchant ? merchantBuilding.trim() : undefined,
+        merchantStreet: isMerchant ? merchantStreet.trim() : undefined,
+        merchantTown: isMerchant ? merchantTown.trim() : undefined,
+        merchantCounty: isMerchant ? merchantCounty.trim() : undefined,
         merchantPhone: isMerchant ? merchantPhone.trim() : undefined,
         merchantEmail: isMerchant
           ? merchantEmail.trim() || undefined
@@ -609,16 +622,59 @@ export default function Wizard() {
               </Text>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Business address</Text>
+                <Text style={styles.fieldLabel}>
+                  Building / unit / number (optional)
+                </Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. 24 Trade Park, Preston, PR1 1AA"
+                  placeholder="e.g. Unit 4, Trade Park"
                   placeholderTextColor="#6B7280"
-                  value={merchantAddress}
-                  onChangeText={setMerchantAddress}
+                  value={merchantBuilding}
+                  onChangeText={setMerchantBuilding}
                   autoCapitalize="words"
                 />
               </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Street</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Kent Street"
+                  placeholderTextColor="#6B7280"
+                  value={merchantStreet}
+                  onChangeText={setMerchantStreet}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Town / city</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Blackburn"
+                  placeholderTextColor="#6B7280"
+                  value={merchantTown}
+                  onChangeText={setMerchantTown}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>County (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Lancashire"
+                  placeholderTextColor="#6B7280"
+                  value={merchantCounty}
+                  onChangeText={setMerchantCounty}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <Text style={[styles.step5Subtext, { marginTop: 4 }]}>
+                Postcode is captured on the next step and used to place
+                your pin on the map.
+              </Text>
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Counter phone</Text>
