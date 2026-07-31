@@ -14,7 +14,7 @@ import {
 import { fetchWithAuth } from '../../lib/auth';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
-import { normalisePhone } from '../../lib/phone';
+import { normalisePhone, whatsappUrl } from '../../lib/phone';
 import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
@@ -153,6 +153,10 @@ export default function Messages() {
         }> = [];
         if (phone) {
           actions.push({
+            text: '🟢 WhatsApp',
+            onPress: () => Linking.openURL(whatsappUrl(phone)),
+          });
+          actions.push({
             text: '💬 Reply via SMS',
             onPress: () => Linking.openURL(`sms:${normalisePhone(phone)}`),
           });
@@ -234,6 +238,10 @@ export default function Messages() {
     }> = [];
 
     if (msg.otherUserPhone) {
+      actions.push({
+        text: '🟢 WhatsApp',
+        onPress: () => Linking.openURL(whatsappUrl(msg.otherUserPhone)),
+      });
       actions.push({
         text: '💬 Reply via SMS',
         onPress: () => Linking.openURL(`sms:${normalisePhone(msg.otherUserPhone)}`),

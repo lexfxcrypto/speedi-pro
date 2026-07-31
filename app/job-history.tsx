@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
-import { normalisePhone } from '../lib/phone';
+import { normalisePhone, whatsappUrl } from '../lib/phone';
 
 const API = 'https://www.speeditrades.com';
 
@@ -98,6 +98,14 @@ export default function JobHistory() {
                     <View style={styles.actions}>
                       {job.customerPhone ? (
                         <>
+                          <TouchableOpacity
+                            style={styles.actionBtn}
+                            onPress={() =>
+                              Linking.openURL(whatsappUrl(job.customerPhone))
+                            }
+                          >
+                            <Text style={styles.actionText}>🟢 WhatsApp</Text>
+                          </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.actionBtn}
                             onPress={() =>

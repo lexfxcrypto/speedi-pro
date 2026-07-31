@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
 import { SHOW_IAP_CREDITS } from '../lib/featureFlags';
-import { normalisePhone } from '../lib/phone';
+import { normalisePhone, whatsappUrl } from '../lib/phone';
 import CreditsPurchaseSheet from '../components/CreditsPurchaseSheet';
 
 const API = 'https://www.speeditrades.com';
@@ -89,6 +89,10 @@ export default function Quotes() {
           style?: 'cancel';
         }> = [];
         if (phone) {
+          actions.push({
+            text: '🟢 WhatsApp',
+            onPress: () => Linking.openURL(whatsappUrl(phone)),
+          });
           actions.push({
             text: '📞 Call',
             onPress: () => Linking.openURL(`tel:${normalisePhone(phone)}`),

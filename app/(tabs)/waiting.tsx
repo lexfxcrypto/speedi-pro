@@ -18,7 +18,7 @@ import {
 import { fetchWithAuth } from '../../lib/auth';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
-import { normalisePhone } from '../../lib/phone';
+import { normalisePhone, whatsappUrl } from '../../lib/phone';
 // Lazy-mount: keep expo-iap's StoreKit observers out of the JS bundle
 // until the user actually wants to buy credits. Same Privacy guard
 // risk as the rewards tab. See app/(tabs)/rewards.tsx for context.
@@ -165,6 +165,12 @@ export default function Waiting() {
           }\n\nYou have ${data.remainingCredits} credits remaining.`,
           [
             {
+              text: '🟢 WhatsApp',
+              onPress: () => {
+                if (customerPhone) Linking.openURL(whatsappUrl(customerPhone));
+              },
+            },
+            {
               text: '📞 Call',
               onPress: () => {
                 if (customerPhone) Linking.openURL(`tel:${normalisePhone(customerPhone)}`);
@@ -237,7 +243,23 @@ export default function Waiting() {
           `Want to ask ${customerName} for a review?`,
           [
             {
-              text: '⭐ Send review request',
+              text: '🟢 Review via WhatsApp',
+              onPress: () => {
+                if (!customerPhone || !reviewSlug) return;
+                const reviewUrl = `https://www.speeditrades.com/review/${reviewSlug}`;
+                const message =
+                  `Hi ${customerName}, thanks for using Speedi! ` +
+                  `I hope you were happy with the work. ` +
+                  `If you have a moment I'd really appreciate ` +
+                  `a quick review — it only takes 30 seconds: ` +
+                  `${reviewUrl}`;
+                Linking.openURL(
+                  `${whatsappUrl(customerPhone)}?text=${encodeURIComponent(message)}`,
+                );
+              },
+            },
+            {
+              text: '⭐ Review via SMS',
               onPress: () => {
                 if (!customerPhone || !reviewSlug) return;
                 const reviewUrl = `https://www.speeditrades.com/review/${reviewSlug}`;

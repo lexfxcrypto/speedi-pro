@@ -22,6 +22,15 @@ export function normalisePhone(input: string | null | undefined): string {
   return `+${digits}`;
 }
 
+/** WhatsApp deep link — wa.me expects the number with no + and no
+ *  spaces, just the digits. Falls back to an empty string when the
+ *  input can't be normalised, so callers can guard with a truthy check. */
+export function whatsappUrl(input: string | null | undefined): string {
+  const dial = normalisePhone(input);
+  if (!dial) return "";
+  return `https://wa.me/${dial.replace(/[^\d]/g, "")}`;
+}
+
 export function phoneForDisplay(input: string | null | undefined): {
   display: string;
   dial: string;
