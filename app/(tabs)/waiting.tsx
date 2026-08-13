@@ -72,6 +72,40 @@ function heat(minutes: number): 'hot' | 'warm' | 'cold' {
   return 'cold';
 }
 
+/**
+ * How long is left, in words. The window is two hours, so this spends
+ * most of its life in the "1h 54m" shape and only drops to bare minutes
+ * near the end — which is exactly when it should be shouting.
+ */
+function timeLeft(minutes: number): string {
+  if (minutes <= 0) return 'expired';
+  if (minutes < 60) return `${minutes}m left`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins === 0 ? `${hours}h left` : `${hours}h ${mins}m left`;
+}
+
+/**
+ * The countdown's colour comes from the time REMAINING, not from the
+ * card's heat.
+ *
+ * Heat measures how new a request is — a competition signal, telling you
+ * to move before someone else does. The countdown measures how long until
+ * it dies. They are not the same thing and they disagree constantly: a
+ * request eleven minutes old is "cold" and still has 1h 49m on the clock.
+ * Tinting the countdown with heat would paint that red and say "nearly
+ * gone" about a job with most of its life ahead, which is the opposite of
+ * what a countdown is for.
+ *
+ * Thresholds are set against the two-hour window: over an hour is calm,
+ * the last twenty minutes are urgent, the middle is a nudge.
+ */
+function urgencyColor(minutesLeft: number): string {
+  if (minutesLeft <= 20) return '#EF4444';
+  if (minutesLeft <= 60) return '#F59E0B';
+  return '#6B7280';
+}
+
 function startOfToday(): number {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -461,7 +495,11 @@ export default function Waiting() {
                   <View style={styles.requestBody}>
                     <View style={styles.rowBetween}>
                       <Text style={styles.requestTrade}>{req.jobType}</Text>
-                      <Text style={styles.requestTime}>{timeAgo(req.minutesAgo)}</Text>
+                      {/* The age used to sit here as a bare "6m ago". It now
+                          lives in the expiry strip below, labelled and paired
+                          with the time remaining, which is the half that
+                          actually tells a trade whether to move. Leaving both
+                          put the same number on the card twice. */}
                     </View>
                     {req.description ? (
                       <Text style={styles.requestDesc}>{req.description}</Text>
@@ -472,6 +510,28 @@ export default function Waiting() {
                         : 'Distance unknown'}
                       {req.customerName ? ` · ${req.customerName}` : ''}
                     </Text>
+
+                    {/* Added / expires. The whole argument for the waitlist
+                        is that these are time-sensitive jobs rather than
+                        stagnant leads, and until now the card gave no way
+                        to tell — you could see a request was 40 minutes old
+                        without knowing whether that left you 20 minutes or
+                        two hours. The list is polled every 20 seconds, so
+                        minutesLeft is never more than that stale. */}
+                    <View style={styles.expiryStrip}>
+                      <Text style={styles.expiryAdded}>
+                        Added {timeAgo(req.minutesAgo)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.expiryLeft,
+                          { color: urgencyColor(req.minutesLeft) },
+                        ]}
+                      >
+                        {timeLeft(req.minutesLeft)}
+                      </Text>
+                    </View>
+
                     <View style={styles.bottomRow}>
                       <TouchableOpacity
                         style={[
@@ -879,10 +939,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
-  requestTime: {
-    color: '#9CA3AF',
-    fontSize: 12,
-  },
   requestDesc: {
     color: '#9CA3AF',
     fontSize: 13,
@@ -892,6 +948,31 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 12,
     marginTop: 6,
+  },
+  expiryStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    // Sits on the #111 card without becoming another button — the strip
+    // is information, and the accept button below it is the only thing
+    // on the card that should read as tappable.
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  expiryAdded: {
+    color: '#6B7280',
+    fontSize: 12,
+  },
+  expiryLeft: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    // Colour is set per-row from urgencyColor.
+    fontVariant: ['tabular-nums'],
   },
   acceptBtn: {
     flex: 1,
