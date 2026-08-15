@@ -639,9 +639,30 @@ export default function Home() {
     }
   };
 
+  /**
+   * Countdown lengths, mirroring src/lib/availabilityStepping.ts on the
+   * server. They are duplicated rather than fetched because the timer has
+   * to start on the tap, before the availability POST comes back — but
+   * duplicated means they can drift, and when they do the pro is the one
+   * who suffers: a timer that hits zero while the server still has them
+   * green makes them press available again for no reason, which is the
+   * exact habit the two-hour window exists to stop.
+   *
+   * Green is on trial at 2hr as of 15 Aug 2026. If the server goes back
+   * to 1hr, this comes back with it.
+   */
+  const AVAILABLE_SECONDS = 7200;
+  const BUSY_SECONDS = 7200;
+  const SOON_SECONDS = 3600;
+
   const handleLightPress = (light: Light) => {
     HAPTIC[light]();
-    const duration = light === 'red' ? 7200 : 3600;
+    const duration =
+      light === 'red'
+        ? BUSY_SECONDS
+        : light === 'amber'
+          ? SOON_SECONDS
+          : AVAILABLE_SECONDS;
     setTlState(light);
     setInitialDuration(duration);
     setTimerSeconds(duration);
