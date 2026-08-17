@@ -186,7 +186,14 @@ function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
   };
 }
 
-async function updateAvailability(state: Light) {
+/**
+ * Hours a pro may pick for green. Mirrors CHOOSABLE_HOURS on the server,
+ * which whitelists the same pair — an unrecognised value there falls back
+ * to the default rather than being trusted.
+ */
+type GreenHours = 1 | 2;
+
+async function updateAvailability(state: Light, hours?: GreenHours) {
   try {
     const location = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
@@ -198,6 +205,8 @@ async function updateAvailability(state: Light) {
         availability: AVAIL_MAP[state],
         lat: latitude,
         lng: longitude,
+        // Only meaningful for green; the server ignores it otherwise.
+        ...(hours ? { hours } : {}),
       }),
     });
     console.log('Availability updated:', state, latitude, longitude);
@@ -651,7 +660,13 @@ export default function Home() {
    * Green is on trial at 2hr as of 15 Aug 2026. If the server goes back
    * to 1hr, this comes back with it.
    */
-  const AVAILABLE_SECONDS = 7200;
+  /**
+   * Which window the pro last chose. Two hours by default, because most
+   * trades have longer gaps than a coach does — and because it is the
+   * value the whole platform ran on before this control existed.
+   */
+  const [greenHours, setGreenHours] = useState<GreenHours>(2);
+  const AVAILABLE_SECONDS = greenHours * 3600;
   const BUSY_SECONDS = 7200;
   const SOON_SECONDS = 3600;
 
@@ -667,7 +682,7 @@ export default function Home() {
     setInitialDuration(duration);
     setTimerSeconds(duration);
     setStartTime(Date.now());
-    updateAvailability(light);
+    updateAvailability(light, light === 'green' ? greenHours : undefined);
   };
 
   const handleQuotesToggle = async (next: boolean) => {
@@ -882,6 +897,34 @@ export default function Home() {
             </View>
             <Text style={styles.messageBannerArrow}>→</Text>
           </TouchableOpacity>
+        )}
+
+        {/* How long green lasts. Sits above the status line, before the
+            lights, because it is a decision made BEFORE pressing green —
+            put below the countdown it reads as a setting for next time.
+
+            Hidden once live: changing it then would imply it re-times the
+            current session, which it does not. Going green again is how
+            you change your mind, and that is one tap away. */}
+        {tlState !== 'green' && (
+          <View style={styles.hoursRow}>
+            <Text style={styles.hoursLabel}>Green for</Text>
+            {([1, 2] as const).map((h) => {
+              const on = greenHours === h;
+              return (
+                <TouchableOpacity
+                  key={h}
+                  onPress={() => setGreenHours(h)}
+                  activeOpacity={0.8}
+                  style={[styles.hoursPill, on && styles.hoursPillOn]}
+                >
+                  <Text style={[styles.hoursPillText, on && styles.hoursPillTextOn]}>
+                    {h} hour{h === 1 ? '' : 's'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         )}
 
         <Text style={[styles.statusText, { color: activeColor }]}>{STATUS_TEXT[tlState]}</Text>
@@ -1189,6 +1232,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginTop: 16,
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  hoursLabel: {
+    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: 2,
+  },
+  hoursPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    backgroundColor: '#141414',
+  },
+  hoursPillOn: {
+    borderColor: '#00C67A',
+    backgroundColor: 'rgba(0,198,122,0.14)',
+  },
+  hoursPillText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  hoursPillTextOn: {
+    color: '#00C67A',
   },
   countdownBlock: {
     alignItems: 'center',
