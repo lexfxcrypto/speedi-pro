@@ -899,34 +899,6 @@ export default function Home() {
           </TouchableOpacity>
         )}
 
-        {/* How long green lasts. Sits above the status line, before the
-            lights, because it is a decision made BEFORE pressing green —
-            put below the countdown it reads as a setting for next time.
-
-            Hidden once live: changing it then would imply it re-times the
-            current session, which it does not. Going green again is how
-            you change your mind, and that is one tap away. */}
-        {tlState !== 'green' && (
-          <View style={styles.hoursRow}>
-            <Text style={styles.hoursLabel}>Green for</Text>
-            {([1, 2] as const).map((h) => {
-              const on = greenHours === h;
-              return (
-                <TouchableOpacity
-                  key={h}
-                  onPress={() => setGreenHours(h)}
-                  activeOpacity={0.8}
-                  style={[styles.hoursPill, on && styles.hoursPillOn]}
-                >
-                  <Text style={[styles.hoursPillText, on && styles.hoursPillTextOn]}>
-                    {h} hour{h === 1 ? '' : 's'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
         <Text style={[styles.statusText, { color: activeColor }]}>{STATUS_TEXT[tlState]}</Text>
 
         {hasTimer && tlState !== 'offline' && (
@@ -971,6 +943,39 @@ export default function Home() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* How long green lasts.
+
+            Sits under the Go Online button, not above the status line.
+            Wedged between the light and the status it split that group in
+            half — light, status and action belong together as one block,
+            and this is a modifier on the action rather than a step before
+            it.
+
+            Hidden once live: changing it then would imply it re-times the
+            current session, which it does not. Going green again is how
+            you change your mind, and that is one tap away. */}
+        {tlState !== 'green' && (
+          <View style={styles.hoursRow}>
+            <Text style={styles.hoursLabel}>Green for</Text>
+            {([1, 2] as const).map((h) => {
+              const on = greenHours === h;
+              return (
+                <TouchableOpacity
+                  key={h}
+                  onPress={() => setGreenHours(h)}
+                  activeOpacity={0.8}
+                  style={[styles.hoursPill, on && styles.hoursPillOn]}
+                >
+                  <Text style={[styles.hoursPillText, on && styles.hoursPillTextOn]}>
+                    {h} hour{h === 1 ? '' : 's'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
 
         {currentEvent &&
         tlState === 'green' &&
@@ -1238,7 +1243,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 14,
+    // Below the Go Online button now, so the breathing room goes above it.
+    marginTop: 16,
+    marginBottom: 4,
   },
   hoursLabel: {
     color: '#6B7280',
