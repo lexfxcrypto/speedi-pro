@@ -952,29 +952,43 @@ export default function Home() {
             and this is a modifier on the action rather than a step before
             it.
 
-            Hidden once live: changing it then would imply it re-times the
-            current session, which it does not. Going green again is how
-            you change your mind, and that is one tap away. */}
-        {tlState !== 'green' && (
-          <View style={styles.hoursRow}>
-            <Text style={styles.hoursLabel}>Green for</Text>
-            {([1, 2] as const).map((h) => {
-              const on = greenHours === h;
-              return (
-                <TouchableOpacity
-                  key={h}
-                  onPress={() => setGreenHours(h)}
-                  activeOpacity={0.8}
-                  style={[styles.hoursPill, on && styles.hoursPillOn]}
-                >
-                  <Text style={[styles.hoursPillText, on && styles.hoursPillTextOn]}>
-                    {h} hour{h === 1 ? '' : 's'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
+            Always visible, including while green. It was hidden once live
+            on the reasoning that changing it then would imply it re-times
+            the running session — but hidden on the one screen a pro looks
+            at all day means most of them never find out the option
+            exists. So instead it DOES re-time: tapping a different window
+            while green re-applies it from now, which is what anybody
+            would expect the button to do. */}
+        <View style={styles.hoursRow}>
+          <Text style={styles.hoursLabel}>Green for</Text>
+          {([1, 2] as const).map((h) => {
+            const on = greenHours === h;
+            return (
+              <TouchableOpacity
+                key={h}
+                onPress={() => {
+                  setGreenHours(h);
+                  if (tlState === 'green') {
+                    // Live: restart the window at the new length rather
+                    // than quietly storing a preference for next time.
+                    const secs = h * 3600;
+                    setInitialDuration(secs);
+                    setTimerSeconds(secs);
+                    setStartTime(Date.now());
+                    updateAvailability('green', h);
+                    HAPTIC.green();
+                  }
+                }}
+                activeOpacity={0.8}
+                style={[styles.hoursPill, on && styles.hoursPillOn]}
+              >
+                <Text style={[styles.hoursPillText, on && styles.hoursPillTextOn]}>
+                  {h} hour{h === 1 ? '' : 's'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
 
         {currentEvent &&
