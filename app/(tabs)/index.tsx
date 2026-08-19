@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -224,6 +225,27 @@ async function updateAvailability(state: Light, hours?: GreenHours) {
     }
   }
 }
+
+
+/**
+ * The running version, e.g. "1.0.11 (39)".
+ *
+ * Shown because a TestFlight install is not obviously any particular
+ * build. When the green-window picker "disappeared" there was no way for
+ * either end of a support conversation to tell whether the phone had the
+ * build that fixed it or the one before, and we spent a round trip on
+ * that question. `appVersionSource: "remote"` means the build number
+ * moves on its own, so the pair is the only thing that identifies a
+ * binary — the marketing version alone doesn't.
+ */
+const BUILD_LABEL = (() => {
+  const version = Constants.expoConfig?.version ?? '?';
+  const build =
+    Constants.expoConfig?.ios?.buildNumber ??
+    (Constants as { nativeBuildVersion?: string }).nativeBuildVersion ??
+    null;
+  return build ? `${version} (${build})` : version;
+})();
 
 export default function Home() {
   const router = useRouter();
@@ -990,6 +1012,8 @@ export default function Home() {
           })}
         </View>
 
+        <Text style={styles.buildLabel}>v{BUILD_LABEL}</Text>
+
 
         {currentEvent &&
         tlState === 'green' &&
@@ -1251,6 +1275,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginTop: 16,
+  },
+  buildLabel: {
+    color: '#3A3A3A',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 10,
   },
   hoursRow: {
     flexDirection: 'row',
