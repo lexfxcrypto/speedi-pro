@@ -21,6 +21,7 @@ import {
 import { fetchWithAuth, getToken } from '../../lib/auth';
 import { SHOW_COMPANIES } from '../../lib/featureFlags';
 import { SERVICE_CATEGORIES, SERVICE_CATEGORIES_LIST } from '../../lib/services';
+import { matchesServiceQuery } from '../../lib/serviceAliases';
 import { SPORTS_CATEGORIES } from '../../lib/sports';
 import { TRADE_CATEGORIES } from '../../lib/trades';
 
@@ -196,6 +197,19 @@ export default function Wizard() {
   const categoryOptions = getCategoryOptions(providerType);
   const isOtherCategoryPath = showOtherInput || !selectedCategory;
   const jobsForCategory = getJobsForCategory(providerType, selectedCategory);
+  /**
+   * Free-text filter over the category's jobs.
+   *
+   * Aesthetics alone runs to 27 services, and they're listed in clinical
+   * terms — a clinic looking for what they'd call botox has to know it's
+   * filed under "Anti-Wrinkle Injections" and scroll to find it. The
+   * alias table maps the spoken word to the lawful one, so typing it
+   * works without the brand ever being displayed.
+   */
+  const [jobQuery, setJobQuery] = useState('');
+  const visibleJobs = jobQuery.trim()
+    ? jobsForCategory.filter((j) => matchesServiceQuery(j, jobQuery))
+    : jobsForCategory;
 
   const canContinue = (() => {
     if (step === 4) return !!selectedCategory || !!otherText.trim();
@@ -265,6 +279,9 @@ export default function Wizard() {
     setSelectedCategory(catName);
     setShowOtherInput(false);
     setOtherText('');
+    // Drop the previous category's filter, or its leftover text makes
+    // the new category look empty.
+    setJobQuery('');
   };
 
   const toggleJob = (job: string) => {
@@ -857,8 +874,26 @@ export default function Wizard() {
                       </Text>
                     </View>
                   ) : (
+                    <View>
+                      {jobsForCategory.length > 12 && (
+                        <TextInput
+                          style={styles.jobSearch}
+                          placeholder="Search services"
+                          placeholderTextColor="#6B7280"
+                          value={jobQuery}
+                          onChangeText={setJobQuery}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          clearButtonMode="while-editing"
+                        />
+                      )}
+                      {visibleJobs.length === 0 && (
+                        <Text style={styles.jobSearchEmpty}>
+                          Nothing matches “{jobQuery.trim()}”.
+                        </Text>
+                      )}
                     <View style={styles.pillWrap}>
-                      {jobsForCategory.map((job) => {
+                      {visibleJobs.map((job) => {
                         const selected = selectedJobs.includes(job);
                         const label =
                           premisesMode === 'mobile' &&
@@ -889,6 +924,7 @@ export default function Wizard() {
                           </TouchableOpacity>
                         );
                       })}
+                    </View>
                     </View>
                   )}
                 </>
@@ -1273,6 +1309,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 8,
+  },
+  jobSearch: {
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#FFFFFF',
+    fontSize: 15,
+    marginBottom: 12,
+  },
+  jobSearchEmpty: {
+    color: '#6B7280',
+    fontSize: 14,
+    marginBottom: 12,
   },
   choicePill: {
     backgroundColor: 'transparent',

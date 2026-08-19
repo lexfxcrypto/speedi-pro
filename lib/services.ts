@@ -52,6 +52,47 @@ export const SERVICE_CATEGORIES_LIST = [
     ],
   },
   {
+    /**
+     * Aesthetics. No brand names anywhere in this list — Botox and the
+     * rest are prescription-only medicines, and UK law (Human Medicines
+     * Regulations 2012) forbids advertising a POM to the public. The
+     * words people actually type live in lib/serviceAliases.ts, which
+     * the picker searches without ever displaying them.
+     */
+    id: "aesthetics",
+    name: "Aesthetics",
+    emoji: "💉",
+    services: [
+      "Anti-Wrinkle Injections",
+      "Dermal Fillers",
+      "Lip Fillers",
+      "Cheek Fillers",
+      "Jawline Filler",
+      "Tear Trough Filler",
+      "Skin Boosters",
+      "Fat Dissolving Injections",
+      "Polynucleotides",
+      "Vitamin B12 Injection",
+      "Microneedling",
+      "Chemical Peel",
+      "Hydrafacial",
+      "Dermaplaning",
+      "LED Light Therapy",
+      "Skin Consultation",
+      "Acne Treatment",
+      "Pigmentation Treatment",
+      "Laser Hair Removal",
+      "IPL Treatment",
+      "Radiofrequency Skin Tightening",
+      "Microdermabrasion",
+      "Thread Lift",
+      "PRP Treatment",
+      "Semi-Permanent Makeup",
+      "Lip Blush",
+      "Teeth Whitening",
+    ],
+  },
+  {
     id: "fitness",
     name: "Fitness",
     emoji: "💪",
