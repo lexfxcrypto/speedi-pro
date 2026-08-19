@@ -41,3 +41,6 @@ yarn-error.*
 /android
 buzd-video/
 buzd/
+
+# Local EAS build artifacts — signed binaries, never committed.
+*.ipa

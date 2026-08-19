@@ -30,14 +30,27 @@ export const SERVICE_CATEGORIES_LIST = [
     ],
   },
   {
-    id: "beauty",
-    name: "Beauty",
+    /**
+     * Hair is its own category on web. This file had folded its four
+     * services into Beauty, so a hairdresser signing up was recorded as
+     * Beauty and a customer filtering Hair matched them only by service
+     * name, never by category.
+     */
+    id: "hair",
+    name: "Hair",
     emoji: "💇",
     services: [
       "Mobile Haircut",
       "Blow Dry",
       "Hair Colouring",
       "Hair Extensions",
+    ],
+  },
+  {
+    id: "beauty",
+    name: "Beauty",
+    emoji: "💇",
+    services: [
       "Nails",
       "Gel Nails",
       "Lash Extensions",
