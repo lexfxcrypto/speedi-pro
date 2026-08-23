@@ -252,6 +252,15 @@ export default function Home() {
   const [tlState, setTlState] = useState<TlState>('offline');
   const [userName, setUserName] = useState('Alex Hacking');
   const [credits, setCredits] = useState(0);
+  /**
+   * How many customers have asked to be told when this pro is free.
+   *
+   * A COUNT and nothing else — never names, never a list. Not squeamishness:
+   * a pro handed the names can contact those people directly and go around
+   * Speedi entirely. The number creates the reason to open a slot; the
+   * names would create the reason to leave.
+   */
+  const [followerCount, setFollowerCount] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [initialDuration, setInitialDuration] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -333,6 +342,9 @@ export default function Home() {
 
           if (data.name) setUserName(data.name);
           if (data.credits !== undefined) setCredits(data.credits);
+          if (typeof data.followerCount === 'number') {
+            setFollowerCount(data.followerCount);
+          }
           // Intentionally do NOT restore tlState from server: every app open
           // starts with all lights off so the user must consciously tap a
           // light to go on the map. (See sibling useEffect that also forces
@@ -981,6 +993,29 @@ export default function Home() {
             exists. So instead it DOES re-time: tapping a different window
             while green re-applies it from now, which is what anybody
             would expect the button to do. */}
+        {/**
+          * Shown on the availability screen, not the dashboard.
+          *
+          * A permanent counter on the home screen becomes a guilt meter —
+          * "9 people waiting" every time they open the app, on a week they
+          * are fully booked, reads as an obligation they are failing. Here,
+          * directly under the button that puts them on the map, the same
+          * number is the best argument the screen can make: demand, at the
+          * moment they are deciding whether to go green.
+          *
+          * Hidden entirely at zero. Nothing is more deflating than being
+          * told nobody is waiting for you.
+          */}
+        {followerCount > 0 ? (
+          <View style={styles.waitingRow}>
+            <Text style={styles.waitingCount}>{followerCount}</Text>
+            <Text style={styles.waitingLabel}>
+              {followerCount === 1 ? 'customer wants' : 'customers want'} to know
+              when you&apos;re free
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.hoursRow}>
           <Text style={styles.hoursLabel}>Green for</Text>
           {([1, 2] as const).map((h) => {
@@ -1282,6 +1317,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginTop: 10,
+  },
+  waitingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,198,122,0.10)',
+    borderWidth: 1,
+    // Deliberately not amber or red. This is information, not a demand —
+    // urgent styling would turn an opportunity into a telling-off.
+    borderColor: 'rgba(0,198,122,0.35)',
+  },
+  waitingCount: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#00C67A',
+  },
+  waitingLabel: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#D1D5DB',
   },
   hoursRow: {
     flexDirection: 'row',
