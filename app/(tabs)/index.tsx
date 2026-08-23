@@ -717,6 +717,19 @@ export default function Home() {
     setTimerSeconds(duration);
     setStartTime(Date.now());
     updateAvailability(light, light === 'green' ? greenHours : undefined);
+
+    /**
+     * Going green tells everyone who was waiting, so nobody is waiting any
+     * more — clear the count on screen at the same moment.
+     *
+     * Set locally rather than re-fetched. The server has already zeroed
+     * it (the notifier stamps every follow it sends to, and the count is
+     * of follows not yet told), so a round trip would return zero anyway
+     * and only add a delay in which the old number is still on screen —
+     * a pro who presses green and watches "3 waiting" sit there
+     * reasonably concludes nothing happened.
+     */
+    if (light === 'green') setFollowerCount(0);
   };
 
   const handleQuotesToggle = async (next: boolean) => {
@@ -1033,6 +1046,9 @@ export default function Home() {
                     setTimerSeconds(secs);
                     setStartTime(Date.now());
                     updateAvailability('green', h);
+                    // Re-timing while green re-applies availability, which
+                    // notifies anyone who has followed since — same reset.
+                    setFollowerCount(0);
                     HAPTIC.green();
                   }
                 }}
