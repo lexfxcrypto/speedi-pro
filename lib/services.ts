@@ -312,10 +312,34 @@ export const SERVICE_CATEGORIES_LIST = [
       "Golf Coach",
       "Swimming Coach",
       "Football Coach",
+      // The distinction a coach sells on and a parent searches for.
+      "1-to-1 Coaching",
+      "Small Group Coaching",
+      "Goalkeeper Coaching",
       "Boxing Coach",
       "Yoga Instructor",
       "Pilates Instructor",
       "Sports Massage",
+    ],
+  },
+  {
+    /**
+     * Childcare. The only category where the person is left alone with a
+     * child. Ofsted registration applies to under-8s and an enhanced DBS
+     * is standard; Speedi verifies neither and must not imply it does.
+     */
+    id: "childcare",
+    name: "Childcare",
+    emoji: "🧸",
+    services: [
+      "Childminder",
+      "Babysitter",
+      "Nanny",
+      "After-School Care",
+      "School Run",
+      "Holiday Club",
+      "Maternity Nurse",
+      "Tutoring & Homework Help",
     ],
   },
   {
