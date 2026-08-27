@@ -1,16 +1,38 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import * as SecureStore from 'expo-secure-store';
+import QRCode from 'react-native-qrcode-svg';
 import { fetchWithAuth } from '../../lib/auth';
 
 const API = 'https://www.speeditrades.com';
+
+/**
+ * Where a customer leaves the review.
+ *
+ * `/review/<providerId>` is the open form — it needs no token, which is
+ * what makes it shareable at all. The token variant
+ * (`/review/<id>/<token>`) exists too but is tied to one specific
+ * message, so it can only ever be sent to one customer who has already
+ * been through a job. A pro handing out a QR at the end of a haircut has
+ * no message to hang a token off, so the open form is the right one.
+ *
+ * The page itself renders their name and trade, so the link is already
+ * "specific to that trade" without us encoding anything extra into it.
+ */
+function reviewUrl(providerId: string) {
+  return `https://www.speedi.co.uk/review/${providerId}`;
+}
 
 type Review = {
   id: string;
@@ -57,6 +79,24 @@ export default function Reviews() {
     reviews: [],
   });
   const [loading, setLoading] = useState(true);
+  /**
+   * The provider's own id, read from the stored session rather than
+   * fetched. It is the one field on the user that can never change, so
+   * a cached copy cannot go stale — and the QR has to render without
+   * waiting on a round trip, otherwise the card flashes empty every
+   * time the tab is opened.
+   */
+  const [providerId, setProviderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    SecureStore.getItemAsync('user_data')
+      .then((raw) => {
+        if (!raw) return;
+        const id = JSON.parse(raw)?.id;
+        if (typeof id === 'string' && id) setProviderId(id);
+      })
+      .catch((e) => console.log('Could not read session for review link:', e));
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -140,27 +180,61 @@ export default function Reviews() {
           ))
         )}
 
-        <View style={styles.qrCard}>
-          <View style={styles.qrBox}>
-            <Text style={styles.qrEmoji}>⬛</Text>
-          </View>
-          <View style={styles.qrBody}>
-            <Text style={styles.qrTitle}>Get more reviews</Text>
-            <Text style={styles.qrSubtitle}>Share your QR code with customers</Text>
-            <View style={styles.qrButtons}>
-              <TouchableOpacity style={styles.qrPrimary}>
-                <Text style={styles.qrPrimaryText}>Download QR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.qrSecondary}>
-                <Text style={styles.qrSecondaryText}>Copy Link</Text>
-              </TouchableOpacity>
+        {/*
+          The card only renders once we know who we are. Showing the
+          frame with an empty square and buttons that cannot work is
+          worse than showing nothing — it was exactly what this screen
+          did before, and it read as broken rather than as loading.
+        */}
+        {providerId && (
+          <View style={styles.qrCard}>
+            <View style={styles.qrBox}>
+              <QRCode
+                value={reviewUrl(providerId)}
+                size={96}
+                color="#1F2937"
+                backgroundColor="#FFFFFF"
+              />
+            </View>
+            <View style={styles.qrBody}>
+              <Text style={styles.qrTitle}>Get more reviews</Text>
+              <Text style={styles.qrSubtitle}>
+                Show this code at the end of a job, or send them the link
+              </Text>
+              <View style={styles.qrButtons}>
+                <TouchableOpacity
+                  style={styles.qrPrimary}
+                  onPress={async () => {
+                    /*
+                     * Sends the link with a line already written. A pro
+                     * texting "leave me a review" mid-shift will not
+                     * compose a message; giving them one is the
+                     * difference between the button being used and not.
+                     */
+                    try {
+                      await Share.share({
+                        message: `Thanks for the work! If you've got a second, a quick review really helps: ${reviewUrl(providerId)}`,
+                      });
+                    } catch (e) {
+                      console.log('Share failed:', e);
+                    }
+                  }}
+                >
+                  <Text style={styles.qrPrimaryText}>Send to customer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.qrSecondary}
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(reviewUrl(providerId));
+                    Alert.alert('Copied', 'Your review link is on the clipboard.');
+                  }}
+                >
+                  <Text style={styles.qrSecondaryText}>Copy link</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-
-        <TouchableOpacity style={styles.shareBtn}>
-          <Text style={styles.shareText}>Share Profile Link</Text>
-        </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -274,8 +348,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qrBox: {
-    width: 80,
-    height: 80,
+    // Sized to the code plus a quiet zone. QR scanners need the white
+    // margin around the pattern — a code bled to the edge of its
+    // container is measurably harder to read across a counter.
+    width: 112,
+    height: 112,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     alignItems: 'center',
