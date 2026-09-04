@@ -111,6 +111,8 @@ type Worker = {
 export default function Profile() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [radiusOpen, setRadiusOpen] = useState(false);
+  const [radiusSaving, setRadiusSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [company, setCompany] = useState<CompanyCtx | null>(null);
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -392,6 +394,36 @@ export default function Profile() {
       ? profile.categoryMain
       : getProviderNoun(profile, { titleCase: true }));
 
+  /**
+   * How far they will travel. Options mirror the onboarding wizard's
+   * RADIUS_OPTIONS — if one list gains a value the other should too, or
+   * a provider can set something at signup they cannot set again.
+   */
+  const RADIUS_CHOICES = [1, 3, 5, 10, 20, 30, 40];
+
+  async function saveRadius(miles: number) {
+    setRadiusSaving(true);
+    try {
+      const res = await fetchWithAuth(`${API}/api/native/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coverageRadius: miles }),
+      });
+      if (!res.ok) {
+        Alert.alert('Could not save', 'Your coverage radius was not changed. Try again.');
+        return;
+      }
+      // Optimistic on success only — showing the new number after a
+      // failed save would tell them they cover 40 miles when they do not.
+      setProfile((p) => (p ? { ...p, coverageRadius: miles } : p));
+      setRadiusOpen(false);
+    } catch {
+      Alert.alert('Could not save', 'Check your connection and try again.');
+    } finally {
+      setRadiusSaving(false);
+    }
+  }
+
   const coverageLabel = profile?.coverageRadius ? `${profile.coverageRadius}mi radius` : null;
 
   const socials: SocialRow[] = [
@@ -430,10 +462,25 @@ export default function Profile() {
                 </Text>
               </View>
             ) : null}
+            {/*
+              Tappable, not just a label.
+
+              coverageRadius decides which waitlist jobs a provider is
+              notified about, and until now it could only be set once
+              during onboarding — there was no way to change it
+              afterwards at all. A loft-conversion firm asked how to go
+              from 10 miles to 40 and the honest answer was "you can't",
+              on a number that governs how much work reaches them.
+            */}
             {coverageLabel ? (
-              <View style={[styles.pill, { backgroundColor: '#1E3A8A66' }]}>
-                <Text style={[styles.pillText, { color: '#93C5FD' }]}>{coverageLabel}</Text>
-              </View>
+              <TouchableOpacity
+                style={[styles.pill, { backgroundColor: '#1E3A8A66' }]}
+                onPress={() => setRadiusOpen(true)}
+              >
+                <Text style={[styles.pillText, { color: '#93C5FD' }]}>
+                  {coverageLabel}  ▾
+                </Text>
+              </TouchableOpacity>
             ) : null}
           </View>
         </View>
@@ -668,6 +715,54 @@ export default function Profile() {
         </TouchableOpacity>
       </ScrollView>
 
+      {/*
+        Coverage radius picker.
+
+        A sheet rather than a screen: it is one number, and burying it
+        behind a settings page is most of why nobody could find it. The
+        note under the options says what the number actually does —
+        providers reasonably assume it affects the map, when what it
+        really governs is which waitlist jobs reach them.
+      */}
+      <Modal
+        visible={radiusOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setRadiusOpen(false)}
+      >
+        <View style={styles.radiusBackdrop}>
+          <View style={styles.radiusSheet}>
+            <Text style={styles.radiusTitle}>How far will you travel?</Text>
+            <Text style={styles.radiusNote}>
+              This decides which waitlist jobs reach you. A wider radius means more
+              jobs, further away.
+            </Text>
+            <View style={styles.radiusRow}>
+              {RADIUS_CHOICES.map((m) => {
+                const on = (profile?.coverageRadius ?? 10) === m;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    disabled={radiusSaving}
+                    onPress={() => saveRadius(m)}
+                    style={[styles.radiusChip, on && styles.radiusChipOn]}
+                  >
+                    <Text style={[styles.radiusChipText, on && styles.radiusChipTextOn]}>
+                      {m}mi
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity onPress={() => setRadiusOpen(false)} style={styles.radiusClose}>
+              <Text style={styles.radiusCloseText}>
+                {radiusSaving ? 'Saving…' : 'Done'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <AddCredentialModal
         visible={addModalVisible}
         onClose={() => setAddModalVisible(false)}
@@ -733,6 +828,17 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
 }
 
 const styles = StyleSheet.create({
+  radiusBackdrop: { flex: 1, backgroundColor: '#000000AA', justifyContent: 'flex-end' },
+  radiusSheet: { backgroundColor: '#111111', padding: 22, paddingBottom: 34, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  radiusTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 6 },
+  radiusNote: { color: '#9CA3AF', fontSize: 14, lineHeight: 20, marginBottom: 16 },
+  radiusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  radiusChip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#1F2937', borderWidth: 2, borderColor: 'transparent' },
+  radiusChipOn: { borderColor: '#E64A19', backgroundColor: '#E64A1922' },
+  radiusChipText: { color: '#E5E7EB', fontSize: 15, fontWeight: '700' },
+  radiusChipTextOn: { color: '#FFFFFF' },
+  radiusClose: { marginTop: 18, alignItems: 'center', paddingVertical: 12 },
+  radiusCloseText: { color: '#9CA3AF', fontSize: 15, fontWeight: '700' },
   safe: {
     flex: 1,
     backgroundColor: '#0A0A0A',

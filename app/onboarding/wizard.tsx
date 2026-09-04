@@ -112,12 +112,26 @@ const PREMISES_OPTIONS: Array<{ key: PremisesMode; title: string; subtext: strin
 
 const YEARS_OPTIONS = ['Under 1 year', '1-3 years', '3-10 years', '10+ years'];
 
+/**
+ * How far they will travel.
+ *
+ * This is not cosmetic — coverageRadius decides which waitlist jobs a
+ * provider is notified about (see notifyProvidersOfWaitingRequest), so
+ * capping it at 20 quietly capped how much work they could be offered.
+ *
+ * 30 and 40 added 2026-09-04 after a loft-conversion firm asked for 40:
+ * a specialist travels further than a plumber, because there are fewer
+ * of them and the jobs are bigger. The old ceiling was set for
+ * call-out trades and applied to everyone.
+ */
 const RADIUS_OPTIONS: Array<{ display: string; value: string }> = [
   { display: '1mi', value: '1' },
   { display: '3mi', value: '3' },
   { display: '5mi', value: '5' },
   { display: '10mi', value: '10' },
   { display: '20mi', value: '20' },
+  { display: '30mi', value: '30' },
+  { display: '40mi', value: '40' },
 ];
 
 type CategoryOption = { name: string; emoji?: string };
@@ -418,7 +432,8 @@ export default function Wizard() {
         name: name.trim(),
         businessName: businessName.trim() || undefined,
         yearsExp,
-        postcode: postcode.trim().toUpperCase(),
+        // Sent as typed. Uppercasing was for UK postcodes and mangles a place name.
+        postcode: postcode.trim(),
         radius,
         goLive,
         photoUrl: photoUrl ?? undefined,
@@ -1017,18 +1032,41 @@ export default function Wizard() {
                 )}
               </View>
 
+              {/*
+                Postcode OR area.
+                
+                This asked for a "Coverage postcode", uppercased whatever
+                was typed, and would not let anybody past step six
+                without it. The UAE does not use postcodes, so both Dubai
+                clinics on the platform did the only thing available and
+                pasted a street address into a field shaped for "PR1" —
+                which then failed to geocode, so they signed up and were
+                invisible.
+
+                The backend already handles both: geocodeUKPostcode tries
+                postcodes.io first and falls through to a worldwide
+                lookup for anything that is not postcode-shaped. Only the
+                question was wrong.
+
+                autoCapitalize is now 'words' rather than 'characters',
+                and the blur-uppercase is gone — "DUBAI MARINA" is not
+                how anybody writes a place, and shouting it at the
+                geocoder helps nothing.
+              */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Coverage postcode</Text>
+                <Text style={styles.fieldLabel}>Postcode or area</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. PR1"
+                  placeholder="e.g. PR1, or Dubai Marina"
                   placeholderTextColor="#6B7280"
                   value={postcode}
                   onChangeText={setPostcode}
-                  onBlur={() => setPostcode((p) => p.toUpperCase())}
-                  autoCapitalize="characters"
+                  autoCapitalize="words"
                   autoCorrect={false}
                 />
+                <Text style={styles.fieldHint}>
+                  A UK postcode, or the town or district you work in.
+                </Text>
               </View>
 
               <View style={styles.fieldGroup}>
@@ -1341,6 +1379,13 @@ const styles = StyleSheet.create({
   },
   fieldGroup: {
     marginBottom: 20,
+  },
+  /** Sub-label under an input — used by the postcode-or-area hint. */
+  fieldHint: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginTop: 6,
+    lineHeight: 18,
   },
   fieldLabel: {
     color: '#FFFFFF',
