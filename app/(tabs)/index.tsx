@@ -1031,7 +1031,15 @@ export default function Home() {
 
         <View style={styles.hoursRow}>
           <Text style={styles.hoursLabel}>Green for</Text>
-          {([1, 2] as const).map((h) => {
+          {/*
+            Mirrors CHOOSABLE_HOURS on the server (speedi/src/lib/
+            availabilityStepping.ts). Six hours was asked for and
+            refused: at six the pin stops meaning "free now" and starts
+            meaning "free today", which is what every directory already
+            implies. Three is long enough that a free afternoon is two
+            presses rather than four.
+          */}
+          {([1, 2, 3] as const).map((h) => {
             const on = greenHours === h;
             return (
               <TouchableOpacity
