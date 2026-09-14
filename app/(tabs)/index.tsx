@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -201,7 +202,7 @@ function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
  */
 type GreenHours = 1 | 2 | 3;
 
-async function updateAvailability(state: Light, hours?: GreenHours) {
+async function updateAvailability(state: Light, hours?: GreenHours, note?: string) {
   try {
     const location = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
@@ -215,6 +216,7 @@ async function updateAvailability(state: Light, hours?: GreenHours) {
         lng: longitude,
         // Only meaningful for green; the server ignores it otherwise.
         ...(hours ? { hours } : {}),
+        ...(note ? { note } : {}),
       }),
     });
     console.log('Availability updated:', state, latitude, longitude);
@@ -707,6 +709,25 @@ export default function Home() {
    * value the whole platform ran on before this control existed.
    */
   const [greenHours, setGreenHours] = useState<GreenHours>(2);
+  /**
+   * What they are available FOR.
+   *
+   * "Available" says nothing about whether a plumber has ten minutes for
+   * a quote or a free day for a bathroom, and those are different offers
+   * that currently look identical on the map. This is the pro setting
+   * expectations before anybody messages, which saves a wasted
+   * conversation on both sides.
+   *
+   * Free text rather than a preset list. The range is too wide to
+   * enumerate — quotes, small jobs, consultations, emergency call-outs,
+   * walk-ins — and a fixed list would be wrong for most trades and need
+   * maintaining forever, which is the same taxonomy trap that has caught
+   * pest control, dog grooming, piercing and driveways.
+   *
+   * Cleared on every flip server-side: it describes THIS window, and a
+   * note that outlives it is the stale-green problem in words.
+   */
+  const [greenNote, setGreenNote] = useState('');
   const AVAILABLE_SECONDS = greenHours * 3600;
   const BUSY_SECONDS = 7200;
   const SOON_SECONDS = 3600;
@@ -723,7 +744,11 @@ export default function Home() {
     setInitialDuration(duration);
     setTimerSeconds(duration);
     setStartTime(Date.now());
-    updateAvailability(light, light === 'green' ? greenHours : undefined);
+    updateAvailability(
+      light,
+      light === 'green' ? greenHours : undefined,
+      light === 'green' ? greenNote.trim() : undefined,
+    );
 
     /**
      * Going green tells everyone who was waiting, so nobody is waiting any
@@ -1037,6 +1062,27 @@ export default function Home() {
         */}
         <WaitingListPanel accent="#00C67A" />
 
+        {/*
+          What they are available FOR, in their own words.
+
+          Sits above the hours because it qualifies the same decision:
+          "available" says nothing about whether there is ten minutes
+          for a quote or a free day for a bathroom, and those look
+          identical on the map today.
+
+          Optional and unlabelled beyond the placeholder — a pro who
+          just wants to go green taps the light and never reads this,
+          and the examples teach the feature without constraining it.
+        */}
+        <TextInput
+          value={greenNote}
+          onChangeText={setGreenNote}
+          placeholder="Available for… quotes, small jobs, consultations"
+          placeholderTextColor="#9a9a9a"
+          maxLength={60}
+          style={styles.noteInput}
+        />
+
         <View style={styles.hoursRow}>
           <Text style={styles.hoursLabel}>Green for</Text>
           {/*
@@ -1061,7 +1107,7 @@ export default function Home() {
                     setInitialDuration(secs);
                     setTimerSeconds(secs);
                     setStartTime(Date.now());
-                    updateAvailability('green', h);
+                    updateAvailability('green', h, greenNote.trim());
                     // Re-timing while green re-applies availability, which
                     // notifies anyone who has followed since — same reset.
                     setFollowerCount(0);
@@ -1364,6 +1410,17 @@ const styles = StyleSheet.create({
     // Deliberately not amber or red. This is information, not a demand —
     // urgent styling would turn an opportunity into a telling-off.
     borderColor: 'rgba(0,198,122,0.35)',
+  },
+  noteInput: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#e2e0d6',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 14,
+    color: '#171717',
+    backgroundColor: '#fff',
   },
   waitingCount: {
     fontSize: 24,
