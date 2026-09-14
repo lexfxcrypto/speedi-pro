@@ -1078,7 +1078,7 @@ export default function Home() {
           value={greenNote}
           onChangeText={setGreenNote}
           placeholder="Available for… quotes, small jobs, consultations"
-          placeholderTextColor="#9a9a9a"
+          placeholderTextColor="rgba(255,255,255,0.35)"
           maxLength={60}
           style={styles.noteInput}
         />
@@ -1414,13 +1414,13 @@ const styles = StyleSheet.create({
   noteInput: {
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#e2e0d6',
+    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 14,
-    color: '#171717',
-    backgroundColor: '#fff',
+    color: '#F5F5F5',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   waitingCount: {
     fontSize: 24,

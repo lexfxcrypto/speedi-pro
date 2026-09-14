@@ -135,23 +135,19 @@ export function WaitingListPanel({ accent }: { accent: string }) {
         an absence of history.
       */}
       {/*
-        "Last time" rather than "last time you went green" — a broadcast
-        counts too, and the line was written before broadcasts existed.
-        Zero is worded as "nobody messaged you" rather than "0 messaged
-        you", which reads like a broken template rather than a fact.
+        No "2 were told and nobody messaged you".
+        
+        It was here and it was wrong: a pro who went green and got no
+        reply did nothing incorrect, and reporting it back to them reads
+        as Speedi grading their performance — or worse, as the platform
+        admitting it did not work. Alex's call to scrap it and he is
+        right.
+
+        The underlying numbers are still recorded — FollowNotification
+        logs every send — so a proper dashboard can show conversion
+        where it belongs, on the admin side, where it is a question
+        about the platform rather than a judgement on one provider.
       */}
-      {stats.lastNotified > 0 ? (
-        <Text style={styles.result}>
-          Last time, {stats.lastNotified}{' '}
-          {stats.lastNotified === 1 ? 'person was' : 'people were'} told and{' '}
-          <Text style={styles.strong}>
-            {stats.repliedAfter === 0
-              ? 'nobody messaged you'
-              : `${stats.repliedAfter} messaged you`}
-          </Text>
-          .
-        </Text>
-      ) : null}
 
       {stats.standing > 0 ? (
         <Pressable
@@ -172,12 +168,13 @@ export function WaitingListPanel({ accent }: { accent: string }) {
             <Text style={styles.sheetHint}>
               Goes to the {stats.standing} who asked to hear from you every
               time. Your pin stays as it is — this does not make you green.
+              Good for a slot opening up, and for saying when it has gone.
             </Text>
             <TextInput
               value={message}
               onChangeText={setMessage}
               placeholder="3pm Friday just come free — first to message gets it"
-              placeholderTextColor="#9a9a9a"
+              placeholderTextColor="rgba(255,255,255,0.35)"
               multiline
               maxLength={120}
               style={styles.input}
@@ -218,20 +215,36 @@ export function WaitingListPanel({ accent }: { accent: string }) {
   );
 }
 
+/**
+ * Dark, because the app is.
+ *
+ * The first version used white cards and a white sheet, which is the
+ * default any component gets when it is written without looking at the
+ * screen it lands on — and it sat on a near-black home tab like a
+ * pasted-in dialog. Surfaces here are a lift off the background rather
+ * than a different colour: rgba white at low alpha, so one set of
+ * values works whatever sits behind it.
+ */
+const SURFACE = 'rgba(255,255,255,0.06)';
+const SURFACE_HI = '#1C1C1E';
+const BORDER = 'rgba(255,255,255,0.12)';
+const TEXT = '#F5F5F5';
+const TEXT_DIM = 'rgba(255,255,255,0.55)';
+
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE,
     borderRadius: 16,
     padding: 16,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#eceae2',
+    borderColor: BORDER,
   },
   headRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   count: { fontSize: 30, fontWeight: '800' },
-  label: { flex: 1, fontSize: 14, color: '#5a5a5a', lineHeight: 19 },
-  result: { marginTop: 10, fontSize: 13, color: '#5a5a5a', lineHeight: 18 },
-  strong: { fontWeight: '800', color: '#171717' },
+  label: { flex: 1, fontSize: 14, color: TEXT_DIM, lineHeight: 19 },
+  result: { marginTop: 10, fontSize: 13, color: TEXT_DIM, lineHeight: 18 },
+  strong: { fontWeight: '800', color: TEXT },
   button: {
     marginTop: 14,
     flexDirection: 'row',
@@ -244,25 +257,26 @@ const styles = StyleSheet.create({
   },
   buttonLabel: { fontSize: 14, fontWeight: '800' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 34 },
-  sheetTitle: { fontSize: 20, fontWeight: '800', color: '#171717' },
-  sheetHint: { fontSize: 13, color: '#5a5a5a', marginTop: 6, lineHeight: 18 },
+  sheet: { backgroundColor: SURFACE_HI, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 34 },
+  sheetTitle: { fontSize: 20, fontWeight: '800', color: TEXT },
+  sheetHint: { fontSize: 13, color: TEXT_DIM, marginTop: 6, lineHeight: 18 },
   input: {
     marginTop: 14,
     minHeight: 84,
     borderWidth: 1,
-    borderColor: '#e2e0d6',
+    borderColor: BORDER,
     borderRadius: 12,
     padding: 12,
     fontSize: 15,
-    color: '#171717',
+    color: TEXT,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     textAlignVertical: 'top',
   },
-  counter: { alignSelf: 'flex-end', fontSize: 11, color: '#9a9a9a', marginTop: 4 },
+  counter: { alignSelf: 'flex-end', fontSize: 11, color: TEXT_DIM, marginTop: 4 },
   sheetButtons: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  secondary: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: 12, backgroundColor: '#f2f1ec' },
-  secondaryLabel: { fontSize: 15, fontWeight: '700', color: '#5a5a5a' },
+  secondary: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)' },
+  secondaryLabel: { fontSize: 15, fontWeight: '700', color: TEXT_DIM },
   primary: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: 12 },
   primaryLabel: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  limit: { fontSize: 11, color: '#9a9a9a', textAlign: 'center', marginTop: 10 },
+  limit: { fontSize: 11, color: TEXT_DIM, textAlign: 'center', marginTop: 10 },
 });
