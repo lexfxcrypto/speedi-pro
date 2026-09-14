@@ -119,11 +119,20 @@ export function WaitingListPanel({ accent }: { accent: string }) {
         send these read as zeros, which looks like failure rather than
         an absence of history.
       */}
+      {/*
+        "Last time" rather than "last time you went green" — a broadcast
+        counts too, and the line was written before broadcasts existed.
+        Zero is worded as "nobody messaged you" rather than "0 messaged
+        you", which reads like a broken template rather than a fact.
+      */}
       {stats.lastNotified > 0 ? (
         <Text style={styles.result}>
-          Last time you went green, {stats.lastNotified} were told and{' '}
+          Last time, {stats.lastNotified}{' '}
+          {stats.lastNotified === 1 ? 'person was' : 'people were'} told and{' '}
           <Text style={styles.strong}>
-            {stats.repliedAfter} messaged you
+            {stats.repliedAfter === 0
+              ? 'nobody messaged you'
+              : `${stats.repliedAfter} messaged you`}
           </Text>
           .
         </Text>
