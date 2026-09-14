@@ -215,11 +215,12 @@ export function WaitingListPanel({ accent }: { accent: string }) {
               </Pressable>
             </View>
 
-            {/* One send per twelve hours. Said up front, because finding
-                out by being refused is worse. */}
-            <Text style={styles.limit}>You can send once every 12 hours.</Text>
+            {/* Said up front, because finding out by being refused is
+                worse. Four, because one cancellation is several
+                messages — free, then taken. */}
+            <Text style={styles.limit}>You can send up to 4 messages a day.</Text>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
