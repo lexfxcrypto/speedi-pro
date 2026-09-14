@@ -7,6 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { fetchWithAuth } from '../lib/auth';
 
 /**
+ * Absolute, because fetchWithAuth passes the URL straight to fetch with
+ * no base — every other call in this app spells the host out. A relative
+ * path fails silently in a native runtime, which is exactly what
+ * happened: the panel caught the error, rendered nothing, and looked
+ * like a provider with no followers.
+ */
+const API = 'https://www.speeditrades.com';
+
+/**
  * The waiting list: how many are on it, what happened last time, and a
  * way to message them.
  *
@@ -49,10 +58,16 @@ export function WaitingListPanel({ accent }: { accent: string }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetchWithAuth('/api/native/follower-stats');
+      const res = await fetchWithAuth(`${API}/api/native/follower-stats`);
       if (res.ok) setStats(await res.json());
-    } catch {
-      // Stats are decoration; a failure must not disturb the screen.
+    } catch (err) {
+      /**
+       * Logged, not swallowed silently. The first version caught and
+       * ignored, so a wrong URL rendered an empty panel that looked
+       * exactly like a provider with no followers — a bug indis-
+       * tinguishable from a normal state is one nobody reports.
+       */
+      console.warn('[waiting-list] stats failed', err);
     }
   }, []);
 
@@ -65,7 +80,7 @@ export function WaitingListPanel({ accent }: { accent: string }) {
     if (!text || sending) return;
     setSending(true);
     try {
-      const res = await fetchWithAuth('/api/native/notify-followers', {
+      const res = await fetchWithAuth(`${API}/api/native/notify-followers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
