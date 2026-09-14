@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text,
-  TextInput, View,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform,
+  Pressable, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchWithAuth } from '../lib/auth';
@@ -162,7 +162,17 @@ export function WaitingListPanel({ accent }: { accent: string }) {
       ) : null}
 
       <Modal visible={composing} animationType="slide" transparent>
-        <View style={styles.backdrop}>
+        {/*
+          The sheet is bottom-anchored, so the keyboard opens straight
+          over the input and the box being typed into is the one thing
+          hidden. Lifting the whole sheet is the fix — padding on iOS,
+          height on Android, which is the pairing that actually works
+          rather than the one that looks symmetrical.
+        */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.backdrop}
+        >
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>Message your list</Text>
             <Text style={styles.sheetHint}>
