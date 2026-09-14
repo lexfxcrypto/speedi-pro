@@ -21,6 +21,7 @@ import { fetchWithAuth, logout } from '../../lib/auth';
 import { SHOW_COMPANIES, SHOW_IAP_CREDITS } from '../../lib/featureFlags';
 import { startLiveLocationTracking, stopLiveLocationTracking } from '../../lib/location';
 import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
+import { WaitingListPanel } from '../../components/WaitingListPanel';
 
 const API = 'https://www.speeditrades.com';
 
@@ -192,7 +193,13 @@ function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
  * which whitelists the same pair — an unrecognised value there falls back
  * to the default rather than being trusted.
  */
-type GreenHours = 1 | 2;
+/**
+ * Mirrors CHOOSABLE_HOURS on the server. Widening the picker to 1/2/3
+ * without widening this compiled anyway — the array literal was typed
+ * independently — and only failed when something else forced a full
+ * typecheck. The two must move together.
+ */
+type GreenHours = 1 | 2 | 3;
 
 async function updateAvailability(state: Light, hours?: GreenHours) {
   try {
@@ -1019,15 +1026,16 @@ export default function Home() {
           * Hidden entirely at zero. Nothing is more deflating than being
           * told nobody is waiting for you.
           */}
-        {followerCount > 0 ? (
-          <View style={styles.waitingRow}>
-            <Text style={styles.waitingCount}>{followerCount}</Text>
-            <Text style={styles.waitingLabel}>
-              {followerCount === 1 ? 'customer wants' : 'customers want'} to know
-              when you&apos;re free
-            </Text>
-          </View>
-        ) : null}
+        {/*
+          Replaces a bare follower count with the same number plus what
+          came of it — "9 were told and 3 messaged you" — and a way to
+          message the people who asked to hear every time.
+
+          followerCount from /api/native/me is still fetched and still
+          drives nothing; the panel loads its own stats. Left in place
+          rather than removed because other screens read it.
+        */}
+        <WaitingListPanel accent="#00C67A" />
 
         <View style={styles.hoursRow}>
           <Text style={styles.hoursLabel}>Green for</Text>
