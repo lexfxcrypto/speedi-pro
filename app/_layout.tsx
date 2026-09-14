@@ -66,14 +66,49 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { screen?: string };
-      if (data.screen === 'waiting') {
-        router.push('/(tabs)/waiting');
-      } else if (data.screen === 'messages') {
-        router.push('/(tabs)/messages');
-      }
-    });
+    /**
+     * Two payload shapes, because there have always been two.
+     *
+     * `screen` is what this app's own pushes send and what this handler
+     * was written for. `url` is what lib/sendPushNotification sends —
+     * every server-side push has carried it since the helper was built,
+     * and nothing here read it, so the extend prompt, the job-accepted
+     * push and the review request all opened the app and stopped.
+     *
+     * Handling both rather than migrating one: the sends are spread
+     * across routes and a cron, and a payload key changed in one place
+     * and missed in another is exactly the drift that produced this.
+     */
+    const act = (response: Notifications.NotificationResponse | null) => {
+      const data = response?.notification?.request?.content?.data as
+        | { screen?: string; url?: string }
+        | undefined;
+      if (!data) return;
+
+      if (data.screen === 'waiting') return router.push('/(tabs)/waiting');
+      if (data.screen === 'messages') return router.push('/(tabs)/messages');
+
+      const url = data.url;
+      if (typeof url !== 'string' || !url) return;
+
+      /**
+       * A web URL has no native equivalent here — the pro's review page
+       * and the map deep link are both web — so it opens outside. An
+       * app path routes.
+       */
+      if (url.startsWith('http')) return void Linking.openURL(url);
+      if (url === '/' ) return router.push('/(tabs)');
+      router.push(url as never);
+    };
+
+    /**
+     * Cold start first. A listener alone only catches taps while the app
+     * is running, and the common case is the opposite: the extend prompt
+     * arrives with the app closed and the tap launches it. Missing this
+     * is the usual way a push handler ships half working.
+     */
+    void Notifications.getLastNotificationResponseAsync().then(act);
+    const sub = Notifications.addNotificationResponseReceivedListener(act);
     return () => sub.remove();
   }, [router]);
 
