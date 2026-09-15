@@ -4,6 +4,9 @@ import {
   Pressable, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import { Share } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { fetchWithAuth } from '../lib/auth';
 
 /**
@@ -43,6 +46,7 @@ const API = 'https://www.speeditrades.com';
  * offer is marketing they never requested.
  */
 type Stats = {
+  providerId: string;
   waiting: number;
   standing: number;
   lastNotified: number;
@@ -148,6 +152,76 @@ export function WaitingListPanel({ accent }: { accent: string }) {
         where it belongs, on the admin side, where it is a question
         about the platform rather than a judgement on one provider.
       */}
+
+      {/*
+        How a provider actually builds a waiting list.
+        
+        Nobody finds a business by browsing an availability app — the
+        customers are already theirs, sitting in the chair or following
+        on Instagram. So the job is handing the provider something to
+        show or send, not marketing at strangers.
+
+        Two forms because there are two moments. The QR is for the
+        counter, a mirror, the back of a card — somebody physically
+        present. The link is for Instagram and WhatsApp, where a QR code
+        is useless because the customer is already holding the phone
+        they would have to scan it with.
+      */}
+      <View style={styles.shareRow}>
+        <View style={styles.qrBox}>
+          <QRCode
+            value={`https://www.speedi.co.uk/notify/${stats.providerId}`}
+            size={72}
+            color="#111"
+            backgroundColor="#fff"
+          />
+        </View>
+        <View style={styles.shareBody}>
+          <Text style={styles.shareTitle}>Build your list</Text>
+          <Text style={styles.shareHint}>
+            Show the code at the counter, or send the link to your clients.
+          </Text>
+          <View style={styles.shareButtons}>
+            <Pressable
+              onPress={() =>
+                void Share.share({
+                  /**
+                   * Written for them. A provider between clients will not
+                   * compose this, and the difference between a drafted
+                   * message and an empty share sheet is whether the
+                   * feature gets used at all.
+                   *
+                   * It names the every-time option deliberately: the
+                   * toggle defaults to once, and a regular who leaves it
+                   * gets told a single time and never again.
+                   */
+                  message:
+                    `We're usually booked up — but if we get a cancellation, it goes on Speedi first.\n\n` +
+                    `Tap here, download the free app and hit "Notify me" (tick "tell me every time"), ` +
+                    `and you'll know the moment a slot opens up:\n` +
+                    `https://www.speedi.co.uk/notify/${stats.providerId}`,
+                })
+              }
+              style={[styles.shareBtn, { backgroundColor: accent }]}
+            >
+              <Text style={styles.shareBtnText}>Send to clients</Text>
+            </Pressable>
+            <Pressable
+              onPress={async () => {
+                await Clipboard.setStringAsync(
+                  `https://www.speedi.co.uk/notify/${stats.providerId}`,
+                );
+                Alert.alert('Copied', 'Paste it in your bio or a story.');
+              }}
+              style={styles.shareBtnAlt}
+            >
+              <Text style={[styles.shareBtnAltText, { color: accent }]}>
+                Copy link
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
 
       {stats.standing > 0 ? (
         <Pressable
@@ -256,6 +330,26 @@ const styles = StyleSheet.create({
   label: { flex: 1, fontSize: 14, color: TEXT_DIM, lineHeight: 19 },
   result: { marginTop: 10, fontSize: 13, color: TEXT_DIM, lineHeight: 18 },
   strong: { fontWeight: '800', color: TEXT },
+  shareRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+  },
+  qrBox: { backgroundColor: '#fff', padding: 6, borderRadius: 8 },
+  shareBody: { flex: 1 },
+  shareTitle: { fontSize: 14, fontWeight: '800', color: TEXT },
+  shareHint: { fontSize: 12, color: TEXT_DIM, marginTop: 2, lineHeight: 16 },
+  shareButtons: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  shareBtn: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10 },
+  shareBtnText: { fontSize: 13, fontWeight: '800', color: '#fff' },
+  shareBtnAlt: {
+    flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  shareBtnAltText: { fontSize: 13, fontWeight: '800' },
   button: {
     marginTop: 14,
     flexDirection: 'row',
