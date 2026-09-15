@@ -223,17 +223,50 @@ export function WaitingListPanel({ accent }: { accent: string }) {
         </View>
       </View>
 
+      {/*
+        Two numbers, and the difference needs saying.
+        
+        "3 customers want to know" above "Message the 2 following you"
+        reads as a bug — it was reported as one within a day. They are
+        different groups on purpose: everyone waiting gets told when the
+        light goes green, but only those who chose "tell me every time"
+        can be messaged directly, because the rest asked a single
+        question and got a single answer.
+        
+        Unexplained, the gap looks like lost notifications. Explained, it
+        is the difference between the two things the feature does.
+      */}
       {stats.standing > 0 ? (
-        <Pressable
-          onPress={() => setComposing(true)}
-          style={[styles.button, { borderColor: accent }]}
-        >
-          <Ionicons name="megaphone-outline" size={16} color={accent} />
-          <Text style={[styles.buttonLabel, { color: accent }]}>
-            Message the {stats.standing} following you
+        <>
+          {stats.standing < stats.waiting ? (
+            <Text style={styles.footnote}>
+              All {stats.waiting} get told when you go green.{' '}
+              {stats.standing} of them also asked to hear from you directly.
+            </Text>
+          ) : null}
+          <Pressable
+            onPress={() => setComposing(true)}
+            style={[styles.button, { borderColor: accent }]}
+          >
+            <Ionicons name="megaphone-outline" size={16} color={accent} />
+            <Text style={[styles.buttonLabel, { color: accent }]}>
+              Message the {stats.standing} following you
+            </Text>
+          </Pressable>
+        </>
+      ) : (
+        /**
+         * Waiting, but nobody to message. Without this the panel simply
+         * has no button and a provider is left wondering where it went.
+         */
+        stats.waiting > 0 ? (
+          <Text style={styles.footnote}>
+            They&apos;ll all be told when you go green. Nobody has asked to
+            hear from you directly yet — share your link and tell them to
+            tick &ldquo;every time&rdquo;.
           </Text>
-        </Pressable>
-      ) : null}
+        ) : null
+      )}
 
       <Modal visible={composing} animationType="slide" transparent>
         {/*
@@ -330,6 +363,12 @@ const styles = StyleSheet.create({
   label: { flex: 1, fontSize: 14, color: TEXT_DIM, lineHeight: 19 },
   result: { marginTop: 10, fontSize: 13, color: TEXT_DIM, lineHeight: 18 },
   strong: { fontWeight: '800', color: TEXT },
+  footnote: {
+    marginTop: 10,
+    fontSize: 12,
+    lineHeight: 17,
+    color: TEXT_DIM,
+  },
   shareRow: {
     flexDirection: 'row',
     gap: 12,
