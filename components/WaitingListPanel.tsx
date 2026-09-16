@@ -4,9 +4,6 @@ import {
   Pressable, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
-import { Share } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
 import { fetchWithAuth } from '../lib/auth';
 
 /**
@@ -35,6 +32,12 @@ const API = 'https://www.speeditrades.com';
  * feature from a claim into evidence, and it is the only figure here a
  * pro could not have guessed.
  *
+ * ── What is deliberately NOT here ──────────────────────────────────────
+ * The share card that builds the list. It sat in this panel and was
+ * intrusive — a plumber who will never onboard a client had a QR code in
+ * the middle of the screen they open to go green. It now lives at the
+ * bottom of the home tab, which is where something optional belongs.
+ *
  * ── Why a message box lives next to it ─────────────────────────────────
  * A cancellation at three on Friday is not something the traffic light
  * can say — green means free NOW, and flipping it to advertise Friday
@@ -57,11 +60,6 @@ type Stats = {
 export function WaitingListPanel({ accent }: { accent: string }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [composing, setComposing] = useState(false);
-  /**
-   * Open only when there is nothing else to show. A pro with followers
-   * came here to go green or message them, not to recruit.
-   */
-  const [shareOpen, setShareOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -176,84 +174,6 @@ export function WaitingListPanel({ accent }: { accent: string }) {
         where it belongs, on the admin side, where it is a question
         about the platform rather than a judgement on one provider.
       */}
-
-      {/*
-        Collapsed behind one line.
-        
-        This shipped as a permanent QR block with two buttons, sitting
-        above the thing a pro opens the app to do. It is the growth
-        mechanism and it was reported as too prominent within a day —
-        correctly: a panel that asks you to recruit before it tells you
-        anything reads as a platform serving itself.
-        
-        So it is a link until tapped. The QR is for a counter and the
-        share link for Instagram; neither is needed on the screen where
-        somebody is deciding whether to go green.
-        
-        One exception, below: at zero followers this is the only useful
-        thing on the panel, so it opens expanded.
-      */}
-      {!shareOpen && !empty ? (
-        <Pressable onPress={() => setShareOpen(true)} style={styles.shareLink}>
-          <Ionicons name="person-add-outline" size={14} color={TEXT_DIM} />
-          <Text style={styles.shareLinkText}>
-            {empty ? 'Get your clients on your list' : 'Add more to your list'}
-          </Text>
-        </Pressable>
-      ) : (
-        <View style={[styles.shareRow, empty && styles.shareRowFirst]}>
-          <View style={styles.qrBox}>
-            <QRCode
-              value={`https://www.speedi.co.uk/notify/${stats.providerId}`}
-              size={72}
-              color="#111"
-              backgroundColor="#fff"
-            />
-          </View>
-          <View style={styles.shareBody}>
-            <Text style={styles.shareTitle}>Build your list</Text>
-            <Text style={styles.shareHint}>
-              Show the code at the counter, or send the link to your clients.
-            </Text>
-            <View style={styles.shareButtons}>
-              <Pressable
-                onPress={() =>
-                  void Share.share({
-                    /**
-                     * Written for them. A provider between clients will
-                     * not compose this, and it names the every-time
-                     * option because the toggle defaults to once — a
-                     * regular who leaves it is told a single time and
-                     * never again.
-                     */
-                    message:
-                      `We're usually booked up — but if we get a cancellation, it goes on Speedi first.\n\n` +
-                      `Tap here, download the free app and hit "Notify me" (tick "tell me every time"), ` +
-                      `and you'll know the moment a slot opens up:\n` +
-                      `https://www.speedi.co.uk/notify/${stats.providerId}`,
-                  })
-                }
-                style={[styles.shareBtn, { backgroundColor: accent }]}
-              >
-                <Text style={styles.shareBtnText}>Send to clients</Text>
-              </Pressable>
-              <Pressable
-                onPress={async () => {
-                  await Clipboard.setStringAsync(
-                    `https://www.speedi.co.uk/notify/${stats.providerId}`,
-                  );
-                  Alert.alert('Copied', 'Paste it in your bio or a story.');
-                }}
-                style={styles.shareBtnAlt}
-              >
-                <Text style={[styles.shareBtnAltText, { color: accent }]}>
-                  Copy link
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      )}
 
       {stats.standing > 0 ? (
         <>

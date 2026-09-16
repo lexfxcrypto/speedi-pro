@@ -23,6 +23,7 @@ import { SHOW_COMPANIES, SHOW_IAP_CREDITS } from '../../lib/featureFlags';
 import { startLiveLocationTracking, stopLiveLocationTracking } from '../../lib/location';
 import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 import { WaitingListPanel } from '../../components/WaitingListPanel';
+import { BuildYourList } from '../../components/BuildYourList';
 
 const API = 'https://www.speeditrades.com';
 
@@ -1312,6 +1313,18 @@ export default function Home() {
           </View>
           <Text style={styles.calendarChevron}>›</Text>
         </TouchableOpacity>
+
+        {/*
+          Last thing on the screen, collapsed, and optional.
+          
+          It began next to the traffic light and was intrusive — a
+          plumber who will never onboard a client had a QR code in the
+          middle of the screen they open to go green. Growth mechanics
+          are optional to the person using the app: a salon that wants a
+          waiting list will go looking for this, and a trade that does
+          not should be able to use Speedi for months without meeting it.
+        */}
+        <BuildYourList accent="#00C67A" />
       </ScrollView>
       <CreditsPurchaseSheet
         visible={showPurchaseSheet}
