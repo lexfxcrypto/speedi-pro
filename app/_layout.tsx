@@ -93,12 +93,33 @@ export default function RootLayout() {
 
       /**
        * A web URL has no native equivalent here — the pro's review page
-       * and the map deep link are both web — so it opens outside. An
-       * app path routes.
+       * and the map deep link are both web — so it opens outside.
        */
       if (url.startsWith('http')) return void Linking.openURL(url);
-      if (url === '/' ) return router.push('/(tabs)');
-      router.push(url as never);
+
+      /**
+       * Only routes this app actually has.
+       *
+       * The server sends one payload to whoever the notification is for,
+       * and some of those paths exist only in the consumer app —
+       * /review/<id> and /map among them. Pushing them here produced
+       * "Unmatched Route  speedipro:///", which is a dead end wearing a
+       * developer's error screen.
+       *
+       * Anything unrecognised opens the home tab instead. A pro who
+       * tapped a notification and landed on their own dashboard has lost
+       * nothing; one who landed on a 404 has been told the app is
+       * broken.
+       */
+      const KNOWN: Record<string, string> = {
+        '/': '/(tabs)',
+        '/messages': '/(tabs)/messages',
+        '/waiting': '/(tabs)/waiting',
+        '/calendar': '/(tabs)/calendar',
+        '/reviews': '/(tabs)/reviews',
+      };
+      const target = KNOWN[url.split('?')[0]] ?? '/(tabs)';
+      router.push(target as never);
     };
 
     /**
