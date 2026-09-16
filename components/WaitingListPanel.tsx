@@ -57,6 +57,11 @@ type Stats = {
 export function WaitingListPanel({ accent }: { accent: string }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [composing, setComposing] = useState(false);
+  /**
+   * Open only when there is nothing else to show. A pro with followers
+   * came here to go green or message them, not to recruit.
+   */
+  const [shareOpen, setShareOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -121,17 +126,36 @@ export function WaitingListPanel({ accent }: { accent: string }) {
 
   // Nothing to say yet, and nothing is more deflating than being told
   // nobody is waiting for you.
-  if (!stats || stats.waiting === 0) return null;
+  if (!stats) return null;
+
+  /**
+   * At zero the panel stays, but the count goes.
+   *
+   * The original rule hid it entirely, on the grounds that nothing is
+   * more deflating than being told nobody is waiting for you. That
+   * holds for the NUMBER and is exactly wrong for the share link: a
+   * provider with no list is precisely who needs the means to build
+   * one, so hiding it withheld the fix from everyone who had the
+   * problem.
+   */
+  const empty = stats.waiting === 0;
 
   return (
     <View style={styles.card}>
-      <View style={styles.headRow}>
-        <Text style={[styles.count, { color: accent }]}>{stats.waiting}</Text>
+      {empty ? (
         <Text style={styles.label}>
-          {stats.waiting === 1 ? 'customer wants' : 'customers want'} to know
-          when you&apos;re free
+          When your clients follow you here, they get a notification the
+          moment you go green — or when you post a cancellation.
         </Text>
-      </View>
+      ) : (
+        <View style={styles.headRow}>
+          <Text style={[styles.count, { color: accent }]}>{stats.waiting}</Text>
+          <Text style={styles.label}>
+            {stats.waiting === 1 ? 'customer wants' : 'customers want'} to know
+            when you&apos;re free
+          </Text>
+        </View>
+      )}
 
       {/*
         Only shown once there is something to report. Before the first
@@ -154,88 +178,83 @@ export function WaitingListPanel({ accent }: { accent: string }) {
       */}
 
       {/*
-        How a provider actually builds a waiting list.
+        Collapsed behind one line.
         
-        Nobody finds a business by browsing an availability app — the
-        customers are already theirs, sitting in the chair or following
-        on Instagram. So the job is handing the provider something to
-        show or send, not marketing at strangers.
-
-        Two forms because there are two moments. The QR is for the
-        counter, a mirror, the back of a card — somebody physically
-        present. The link is for Instagram and WhatsApp, where a QR code
-        is useless because the customer is already holding the phone
-        they would have to scan it with.
+        This shipped as a permanent QR block with two buttons, sitting
+        above the thing a pro opens the app to do. It is the growth
+        mechanism and it was reported as too prominent within a day —
+        correctly: a panel that asks you to recruit before it tells you
+        anything reads as a platform serving itself.
+        
+        So it is a link until tapped. The QR is for a counter and the
+        share link for Instagram; neither is needed on the screen where
+        somebody is deciding whether to go green.
+        
+        One exception, below: at zero followers this is the only useful
+        thing on the panel, so it opens expanded.
       */}
-      <View style={styles.shareRow}>
-        <View style={styles.qrBox}>
-          <QRCode
-            value={`https://www.speedi.co.uk/notify/${stats.providerId}`}
-            size={72}
-            color="#111"
-            backgroundColor="#fff"
-          />
-        </View>
-        <View style={styles.shareBody}>
-          <Text style={styles.shareTitle}>Build your list</Text>
-          <Text style={styles.shareHint}>
-            Show the code at the counter, or send the link to your clients.
+      {!shareOpen && !empty ? (
+        <Pressable onPress={() => setShareOpen(true)} style={styles.shareLink}>
+          <Ionicons name="person-add-outline" size={14} color={TEXT_DIM} />
+          <Text style={styles.shareLinkText}>
+            {empty ? 'Get your clients on your list' : 'Add more to your list'}
           </Text>
-          <View style={styles.shareButtons}>
-            <Pressable
-              onPress={() =>
-                void Share.share({
-                  /**
-                   * Written for them. A provider between clients will not
-                   * compose this, and the difference between a drafted
-                   * message and an empty share sheet is whether the
-                   * feature gets used at all.
-                   *
-                   * It names the every-time option deliberately: the
-                   * toggle defaults to once, and a regular who leaves it
-                   * gets told a single time and never again.
-                   */
-                  message:
-                    `We're usually booked up — but if we get a cancellation, it goes on Speedi first.\n\n` +
-                    `Tap here, download the free app and hit "Notify me" (tick "tell me every time"), ` +
-                    `and you'll know the moment a slot opens up:\n` +
+        </Pressable>
+      ) : (
+        <View style={[styles.shareRow, empty && styles.shareRowFirst]}>
+          <View style={styles.qrBox}>
+            <QRCode
+              value={`https://www.speedi.co.uk/notify/${stats.providerId}`}
+              size={72}
+              color="#111"
+              backgroundColor="#fff"
+            />
+          </View>
+          <View style={styles.shareBody}>
+            <Text style={styles.shareTitle}>Build your list</Text>
+            <Text style={styles.shareHint}>
+              Show the code at the counter, or send the link to your clients.
+            </Text>
+            <View style={styles.shareButtons}>
+              <Pressable
+                onPress={() =>
+                  void Share.share({
+                    /**
+                     * Written for them. A provider between clients will
+                     * not compose this, and it names the every-time
+                     * option because the toggle defaults to once — a
+                     * regular who leaves it is told a single time and
+                     * never again.
+                     */
+                    message:
+                      `We're usually booked up — but if we get a cancellation, it goes on Speedi first.\n\n` +
+                      `Tap here, download the free app and hit "Notify me" (tick "tell me every time"), ` +
+                      `and you'll know the moment a slot opens up:\n` +
+                      `https://www.speedi.co.uk/notify/${stats.providerId}`,
+                  })
+                }
+                style={[styles.shareBtn, { backgroundColor: accent }]}
+              >
+                <Text style={styles.shareBtnText}>Send to clients</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  await Clipboard.setStringAsync(
                     `https://www.speedi.co.uk/notify/${stats.providerId}`,
-                })
-              }
-              style={[styles.shareBtn, { backgroundColor: accent }]}
-            >
-              <Text style={styles.shareBtnText}>Send to clients</Text>
-            </Pressable>
-            <Pressable
-              onPress={async () => {
-                await Clipboard.setStringAsync(
-                  `https://www.speedi.co.uk/notify/${stats.providerId}`,
-                );
-                Alert.alert('Copied', 'Paste it in your bio or a story.');
-              }}
-              style={styles.shareBtnAlt}
-            >
-              <Text style={[styles.shareBtnAltText, { color: accent }]}>
-                Copy link
-              </Text>
-            </Pressable>
+                  );
+                  Alert.alert('Copied', 'Paste it in your bio or a story.');
+                }}
+                style={styles.shareBtnAlt}
+              >
+                <Text style={[styles.shareBtnAltText, { color: accent }]}>
+                  Copy link
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-      </View>
+      )}
 
-      {/*
-        Two numbers, and the difference needs saying.
-        
-        "3 customers want to know" above "Message the 2 following you"
-        reads as a bug — it was reported as one within a day. They are
-        different groups on purpose: everyone waiting gets told when the
-        light goes green, but only those who chose "tell me every time"
-        can be messaged directly, because the rest asked a single
-        question and got a single answer.
-        
-        Unexplained, the gap looks like lost notifications. Explained, it
-        is the difference between the two things the feature does.
-      */}
       {stats.standing > 0 ? (
         <>
           {stats.standing < stats.waiting ? (
@@ -363,6 +382,19 @@ const styles = StyleSheet.create({
   label: { flex: 1, fontSize: 14, color: TEXT_DIM, lineHeight: 19 },
   result: { marginTop: 10, fontSize: 13, color: TEXT_DIM, lineHeight: 18 },
   strong: { fontWeight: '800', color: TEXT },
+  // No divider when the share card is the first thing in the panel.
+  shareRowFirst: { borderTopWidth: 0, paddingTop: 4 },
+  shareLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+  },
+  shareLinkText: { fontSize: 12, fontWeight: '700', color: TEXT_DIM },
   footnote: {
     marginTop: 10,
     fontSize: 12,
