@@ -62,6 +62,13 @@ const AVAIL_MAP: Record<Light, string> = {
   red: 'BUSY',
 };
 
+/** The way back, for restoring the light from /api/native/me. */
+const SERVER_TO_LIGHT: Record<string, Light | undefined> = {
+  AVAILABLE: 'green',
+  SOON: 'amber',
+  BUSY: 'red',
+};
+
 type OwnedCompany = {
   id: string;
   name: string;
@@ -326,16 +333,31 @@ export default function Home() {
   const pulse = useRef(new Animated.Value(0.3)).current;
   const livePulse = useRef(new Animated.Value(0.3)).current;
 
-  // Force server-side availability to OFFLINE on cold start so the customer
-  // map matches the local "all lights off" visual. Without this, a pro who
-  // killed the app while green would still appear on the map until they
-  // manually went offline.
-  useEffect(() => {
-    fetchWithAuth(`${API}/api/native/availability`, {
-      method: 'POST',
-      body: JSON.stringify({ availability: 'OFFLINE' }),
-    }).catch((e) => console.log('cold-start offline failed', e));
-  }, []);
+  /**
+   * REMOVED: the cold-start force to OFFLINE.
+   *
+   * It used to POST availability: 'OFFLINE' on every mount of this
+   * screen, so the server would match the local "all lights off" visual.
+   * The reasoning was that a pro who killed the app while green should
+   * not stay on the map.
+   *
+   * But that is precisely what the two-hour window is for, and the two
+   * models contradicted each other: the server believed the pro was green
+   * until the timer ran out, while the app switched them off the moment
+   * it opened. A pro who went green, got on with the job and reopened the
+   * app twenty minutes later to check a message was silently taken off
+   * the map — still looking at an app that had just told them they were
+   * on it.
+   *
+   * availabilityStepping.ts on the server names the cost of exactly this:
+   * "the cost of forgetting is invisibility — they think they are on the
+   * map and they are not. The failure is silent and it lands on the
+   * person we are asking to trust the thing."
+   *
+   * The light is now RESTORED from the server instead (see loadUserData).
+   * Nothing goes green that the pro did not put there; it just stops
+   * being taken away from them.
+   */
 
   useFocusEffect(
     useCallback(() => {
@@ -355,10 +377,41 @@ export default function Home() {
           if (typeof data.followerCount === 'number') {
             setFollowerCount(data.followerCount);
           }
-          // Intentionally do NOT restore tlState from server: every app open
-          // starts with all lights off so the user must consciously tap a
-          // light to go on the map. (See sibling useEffect that also forces
-          // the server to OFFLINE on mount to keep the two in sync.)
+          /**
+           * Restore the light from the server.
+           *
+           * This deliberately did the opposite — "every app open starts
+           * with all lights off so the user must consciously tap a light"
+           * — and paired with the mount effect that forced the server
+           * OFFLINE to match. Together they meant a pro could not stay
+           * green across an app open, which is the one thing the two-hour
+           * window exists to allow.
+           *
+           * Only a live window counts. An availableUntil in the past is
+           * the cron's business, not ours, and showing green off the back
+           * of a lapsed timestamp would recreate the same lie pointing
+           * the other way.
+           */
+          const until = data.availableUntil ? new Date(data.availableUntil).getTime() : 0;
+          const live = until > Date.now();
+          if (data.availability === 'OFFLINE' || !data.availability || !live) {
+            setTlState('offline');
+            setStartTime(null);
+            setInitialDuration(0);
+            setTimerSeconds(0);
+          } else {
+            const light = SERVER_TO_LIGHT[data.availability];
+            if (light) {
+              setTlState(light);
+              // The countdown is reconstructed from the deadline rather
+              // than from a duration, because the app does not know how
+              // long ago the pro pressed it — only when it runs out.
+              const remaining = Math.floor((until - Date.now()) / 1000);
+              setStartTime(Date.now());
+              setInitialDuration(remaining);
+              setTimerSeconds(remaining);
+            }
+          }
           if (typeof data.availableForQuotes === 'boolean') {
             setAvailableForQuotes(data.availableForQuotes);
           }
@@ -678,10 +731,31 @@ export default function Home() {
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = location.coords;
+      /**
+       * Location ONLY. No availability field.
+       *
+       * This used to send availability: 'AVAILABLE' with every ping, and
+       * it fires every fifteen seconds while the light is green. Each one
+       * ran through steppingFor('AVAILABLE') with no `hours`, so the
+       * server reset availableUntil to the DEFAULT two-hour window —
+       * meaning a pro who deliberately chose one hour was silently pushed
+       * back to two, four times a minute, for as long as the app stayed
+       * open. The light stopped expiring at all while anybody was
+       * looking at it.
+       *
+       * That is the stale green the server's own availabilityStepping.ts
+       * refuses to allow: "a stale green costs a CUSTOMER a wasted
+       * message and the conclusion that the app does not work".
+       *
+       * lib/location.ts already got this right for the background task
+       * and says why: "deliberately omit `availability` so the server
+       * doesn't reset the pro's state." The foreground path simply never
+       * got the same treatment. The server accepts a lat/lng-only body
+       * and touches nothing else.
+       */
       await fetchWithAuth(`${API}/api/native/availability`, {
         method: 'POST',
         body: JSON.stringify({
-          availability: 'AVAILABLE',
           lat: latitude,
           lng: longitude,
         }),
