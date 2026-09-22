@@ -14,9 +14,11 @@ import {
 } from 'react-native';
 import { PasswordInput } from '../components/PasswordInput';
 import { login } from '../lib/auth';
+import { useT } from '../lib/i18n';
 
 export default function Login() {
   const router = useRouter();
+  const { t } = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,10 +32,10 @@ export default function Login() {
       if (result.success) {
         router.replace('/(tabs)');
       } else {
-        setError(result.error || 'Invalid email or password');
+        setError(result.error || t('login.invalidCredentials'));
       }
     } catch {
-      setError('Invalid email or password');
+      setError(t('login.invalidCredentials'));
     } finally {
       setLoading(false);
     }
@@ -52,11 +54,11 @@ export default function Login() {
             resizeMode="contain"
           />
 
-          <Text style={styles.title}>Sign in to Speedi Pro</Text>
+          <Text style={styles.title}>{t('login.title')}</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder={t('login.emailPlaceholder')}
             placeholderTextColor="#6B7280"
             value={email}
             onChangeText={setEmail}
@@ -67,7 +69,7 @@ export default function Login() {
           />
 
           <PasswordInput
-            placeholder="Password"
+            placeholder={t('login.passwordPlaceholder')}
             placeholderTextColor="#6B7280"
             value={password}
             onChangeText={setPassword}
@@ -79,7 +81,7 @@ export default function Login() {
             onPress={() => router.push('/forgot-password')}
             disabled={loading}
           >
-            <Text style={styles.forgotLink}>Forgot password?</Text>
+            <Text style={styles.forgotLink}>{t('login.forgotPassword')}</Text>
           </TouchableOpacity>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -93,14 +95,14 @@ export default function Login() {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
+              <Text style={styles.buttonText}>{t('login.signIn')}</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don&apos;t have an account? </Text>
+            <Text style={styles.footerText}>{t('login.noAccount')}</Text>
             <TouchableOpacity onPress={() => router.push('/register')} disabled={loading}>
-              <Text style={styles.footerLink}>Create one</Text>
+              <Text style={styles.footerLink}>{t('login.createOne')}</Text>
             </TouchableOpacity>
           </View>
         </View>

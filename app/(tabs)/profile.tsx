@@ -22,6 +22,7 @@ import { fetchWithAuth, getToken, logout } from '../../lib/auth';
 import { getCertSuggestionsForTrade } from '../../lib/certifications';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_COMPANIES } from '../../lib/featureFlags';
+import { useT, type Lang } from '../../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 
@@ -78,6 +79,12 @@ const CRED_ICON: Record<string, string> = {
 
 type SocialRow = { icon: string; label: string; url: string };
 
+// Each language named in itself, so either can be found whichever is on.
+const LANG_CHOICES: { lang: Lang; label: string }[] = [
+  { lang: 'en', label: 'English' },
+  { lang: 'th', label: 'ไทย' },
+];
+
 type CompanyCtx = {
   id: string;
   name: string;
@@ -110,6 +117,7 @@ type Worker = {
 
 export default function Profile() {
   const router = useRouter();
+  const { t, lang, setLang } = useT();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [radiusOpen, setRadiusOpen] = useState(false);
   const [radiusSaving, setRadiusSaving] = useState(false);
@@ -189,7 +197,7 @@ export default function Profile() {
       });
       if (!uploadRes.ok) {
         const d = await uploadRes.json().catch(() => ({}));
-        throw new Error(d.error || `Upload failed (${uploadRes.status})`);
+        throw new Error(d.error || t('profile.uploadFailedStatus', { status: uploadRes.status }));
       }
       const { url } = await uploadRes.json();
 
@@ -199,13 +207,13 @@ export default function Profile() {
       });
       if (!saveRes.ok) {
         const d = await saveRes.json().catch(() => ({}));
-        throw new Error(d.error || 'Could not save photo');
+        throw new Error(d.error || t('profile.couldNotSavePhoto'));
       }
       const photo = await saveRes.json();
       setPhotos((prev) => [photo, ...prev]);
     } catch (err) {
       console.log('Portfolio upload failed:', err);
-      Alert.alert('Upload failed', err instanceof Error ? err.message : 'Try again');
+      Alert.alert(t('profile.uploadFailedTitle'), err instanceof Error ? err.message : t('common.retry'));
     } finally {
       setUploadingPhoto(false);
     }
@@ -214,7 +222,7 @@ export default function Profile() {
   const pickFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo access to upload portfolio photos.');
+      Alert.alert(t('profile.permissionNeeded'), t('profile.permissionPhotos'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -230,7 +238,7 @@ export default function Profile() {
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow camera access to take a photo.');
+      Alert.alert(t('profile.permissionNeeded'), t('profile.permissionCamera'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -245,21 +253,21 @@ export default function Profile() {
 
   const handleAddPhoto = () => {
     if (photos.length >= 8) {
-      Alert.alert('Portfolio full', 'You can have up to 8 photos. Delete one to add another.');
+      Alert.alert(t('profile.portfolioFullTitle'), t('profile.portfolioFullMessage'));
       return;
     }
-    Alert.alert('Add a photo', 'Choose how you want to add this photo.', [
-      { text: 'Take photo', onPress: takePhoto },
-      { text: 'Choose from library', onPress: pickFromLibrary },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('profile.addPhotoTitle'), t('profile.addPhotoMessage'), [
+      { text: t('profile.takePhoto'), onPress: takePhoto },
+      { text: t('profile.chooseFromLibrary'), onPress: pickFromLibrary },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
   const handleRemovePhoto = (id: string) => {
-    Alert.alert('Remove photo?', 'This will delete it from your portfolio.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('profile.removePhotoTitle'), t('profile.removePhotoMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('profile.remove'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -320,21 +328,21 @@ export default function Profile() {
   // tap-to-confirm. On success, clear local auth and route to /login.
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete account?',
-      'This will permanently remove your Speedi account, profile, portfolio and credentials. Customers will no longer see you on the map. This cannot be undone.',
+      t('profile.deleteAccountTitle'),
+      t('profile.deleteAccountMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete account',
+          text: t('profile.deleteAccountConfirm'),
           style: 'destructive',
           onPress: () => {
             Alert.alert(
-              'Are you sure?',
-              "Last chance — once deleted, your account can't be recovered.",
+              t('profile.deleteAccountSureTitle'),
+              t('profile.deleteAccountSureMessage'),
               [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Delete',
+                  text: t('common.delete'),
                   style: 'destructive',
                   onPress: async () => {
                     try {
@@ -343,14 +351,14 @@ export default function Profile() {
                       });
                       if (!res.ok) {
                         const d = await res.json().catch(() => ({}));
-                        throw new Error(d.error || 'Could not delete account');
+                        throw new Error(d.error || t('profile.couldNotDeleteAccount'));
                       }
                       await logout();
                       router.replace('/login');
                     } catch (e) {
                       Alert.alert(
-                        'Delete failed',
-                        e instanceof Error ? e.message : 'Try again or contact support.',
+                        t('profile.deleteFailedTitle'),
+                        e instanceof Error ? e.message : t('profile.deleteFailedMessage'),
                       );
                     }
                   },
@@ -368,7 +376,7 @@ export default function Profile() {
     const url = `${API}/invite/${company.inviteCode}`;
     try {
       await Share.share({
-        message: `Join ${company.name} on Speedi — tap to accept: ${url}`,
+        message: t('profile.inviteShareMessage', { company: company.name, url }),
         url,
       });
     } catch (e) {
@@ -410,7 +418,7 @@ export default function Profile() {
         body: JSON.stringify({ coverageRadius: miles }),
       });
       if (!res.ok) {
-        Alert.alert('Could not save', 'Your coverage radius was not changed. Try again.');
+        Alert.alert(t('profile.couldNotSave'), t('profile.radiusNotChanged'));
         return;
       }
       // Optimistic on success only — showing the new number after a
@@ -418,13 +426,15 @@ export default function Profile() {
       setProfile((p) => (p ? { ...p, coverageRadius: miles } : p));
       setRadiusOpen(false);
     } catch {
-      Alert.alert('Could not save', 'Check your connection and try again.');
+      Alert.alert(t('profile.couldNotSave'), t('profile.checkConnection'));
     } finally {
       setRadiusSaving(false);
     }
   }
 
-  const coverageLabel = profile?.coverageRadius ? `${profile.coverageRadius}mi radius` : null;
+  const coverageLabel = profile?.coverageRadius
+    ? t('profile.radiusPill', { miles: profile.coverageRadius })
+    : null;
 
   const socials: SocialRow[] = [
     profile?.facebookUrl ? { icon: '📘', label: profile.facebookUrl, url: profile.facebookUrl } : null,
@@ -445,20 +455,20 @@ export default function Profile() {
               <Text style={styles.avatarEmoji}>🔧</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroName}>{profile?.name || 'Loading...'}</Text>
+              <Text style={styles.heroName}>{profile?.name || t('common.loading')}</Text>
               <Text style={styles.heroTrade}>{tradeLine}</Text>
             </View>
           </View>
           <View style={styles.pillRow}>
             {profile?.isApproved ? (
               <View style={[styles.pill, { backgroundColor: '#00C67A33' }]}>
-                <Text style={[styles.pillText, { color: '#00C67A' }]}>✅ Approved</Text>
+                <Text style={[styles.pillText, { color: '#00C67A' }]}>{t('profile.approved')}</Text>
               </View>
             ) : null}
             {profile?.yearsExperience ? (
               <View style={[styles.pill, { backgroundColor: '#00000033' }]}>
                 <Text style={[styles.pillText, { color: '#FFFFFF' }]}>
-                  {profile.yearsExperience}+ yrs
+                  {t('profile.yearsShort', { years: profile.yearsExperience })}
                 </Text>
               </View>
             ) : null}
@@ -501,7 +511,7 @@ export default function Profile() {
                     { color: company.isApproved ? '#00C67A' : '#F59E0B' },
                   ]}
                 >
-                  {company.isApproved ? '✓ Approved' : 'Pending approval'}
+                  {company.isApproved ? t('profile.companyApproved') : t('profile.companyPending')}
                 </Text>
               </View>
             </View>
@@ -509,31 +519,37 @@ export default function Profile() {
             <View style={styles.creditBlock}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.creditValue}>{company.creditBalance}</Text>
-                <Text style={styles.creditLabel}>Company credits remaining</Text>
+                <Text style={styles.creditLabel}>{t('profile.companyCreditsRemaining')}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={styles.creditReset}>
-                  Resets{' '}
-                  {new Date(company.creditsResetDate).toLocaleDateString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
+                  {t('profile.companyResets', {
+                    date: new Date(company.creditsResetDate).toLocaleDateString(
+                      lang === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB',
+                      { day: 'numeric', month: 'short' },
+                    ),
                   })}
                 </Text>
-                <Text style={styles.creditMode}>Mode: {company.messageMode}</Text>
+                <Text style={styles.creditMode}>
+                  {t('profile.companyMode', {
+                    mode:
+                      company.messageMode === 'dispatcher'
+                        ? t('profile.modeDispatcher')
+                        : t('profile.modeAutonomous'),
+                  })}
+                </Text>
               </View>
             </View>
 
             <View style={styles.workersHeader}>
-              <Text style={styles.workersTitle}>Workers ({workers.length})</Text>
+              <Text style={styles.workersTitle}>{t('profile.workersTitle', { count: workers.length })}</Text>
               <TouchableOpacity onPress={handleShareInvite}>
-                <Text style={styles.actionText}>+ Invite</Text>
+                <Text style={styles.actionText}>{t('profile.invite')}</Text>
               </TouchableOpacity>
             </View>
 
             {workers.length === 0 ? (
-              <Text style={styles.workersEmpty}>
-                No workers yet. Tap Invite to add your first one.
-              </Text>
+              <Text style={styles.workersEmpty}>{t('profile.workersEmpty')}</Text>
             ) : (
               workers.map((w) => (
                 <View key={w.id} style={styles.workerRow}>
@@ -554,11 +570,14 @@ export default function Profile() {
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.workerName}>
-                      {w.user?.name ?? (w.inviteAccepted ? 'Unnamed' : 'Pending invite')}
+                      {w.user?.name ?? (w.inviteAccepted ? t('profile.workerUnnamed') : t('profile.workerPendingInvite'))}
                     </Text>
                     <Text style={styles.workerMeta}>
-                      {w.user?.trade ?? 'Worker'} · {w.messageMode}
-                      {!w.inviteAccepted ? ' · invite pending' : ''}
+                      {w.user?.trade ?? t('profile.workerFallback')} ·{' '}
+                      {w.messageMode === 'dispatcher'
+                        ? t('profile.modeDispatcher')
+                        : t('profile.modeAutonomous')}
+                      {!w.inviteAccepted ? t('profile.workerInvitePending') : ''}
                     </Text>
                   </View>
                   <Text style={styles.workerCredits}>{w.creditBalance}</Text>
@@ -570,15 +589,15 @@ export default function Profile() {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Business Details</Text>
+            <Text style={styles.cardTitle}>{t('profile.businessDetails')}</Text>
             <TouchableOpacity onPress={() => setEditBusinessVisible(true)} activeOpacity={0.7}>
-              <Text style={styles.actionText}>Edit</Text>
+              <Text style={styles.actionText}>{t('common.edit')}</Text>
             </TouchableOpacity>
           </View>
-          <DetailRow icon="🏢" label="Trading Name" value={profile?.name || '—'} />
+          <DetailRow icon="🏢" label={t('profile.tradingName')} value={profile?.name || '—'} />
           <DetailRow
             icon="🛠️"
-            label="Services"
+            label={t('profile.services')}
             value={
               profile?.trades && profile.trades.length > 0
                 ? profile.trades.join(' · ')
@@ -587,19 +606,23 @@ export default function Profile() {
           />
           <DetailRow
             icon="📍"
-            label="Coverage"
-            value={profile?.businessAddress || 'Location set'}
+            label={t('profile.coverage')}
+            value={profile?.businessAddress || t('profile.locationSet')}
           />
           <DetailRow
             icon="📅"
-            label="Experience"
-            value={profile?.yearsExperience ? `${profile.yearsExperience} years` : '—'}
+            label={t('profile.experience')}
+            value={
+              profile?.yearsExperience
+                ? t('profile.experienceYears', { years: profile.yearsExperience })
+                : '—'
+            }
           />
         </View>
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Portfolio ({photos.length}/8)</Text>
+            <Text style={styles.cardTitle}>{t('profile.portfolioTitle', { count: photos.length })}</Text>
             <TouchableOpacity
               onPress={handleAddPhoto}
               disabled={uploadingPhoto || photos.length >= 8}
@@ -611,14 +634,12 @@ export default function Profile() {
                   (uploadingPhoto || photos.length >= 8) && { opacity: 0.5 },
                 ]}
               >
-                {uploadingPhoto ? 'Uploading…' : '+ Add photo'}
+                {uploadingPhoto ? t('profile.uploading') : t('profile.addPhoto')}
               </Text>
             </TouchableOpacity>
           </View>
           {photos.length === 0 ? (
-            <Text style={styles.emptyText}>
-              No photos yet. Tap Add photo to show customers your work.
-            </Text>
+            <Text style={styles.emptyText}>{t('profile.portfolioEmpty')}</Text>
           ) : (
             <View style={styles.portfolioGrid}>
               {photos.map((p) => (
@@ -646,13 +667,13 @@ export default function Profile() {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Certifications & Insurance</Text>
+            <Text style={styles.cardTitle}>{t('profile.certsTitle')}</Text>
             <TouchableOpacity onPress={() => setAddModalVisible(true)} activeOpacity={0.7}>
-              <Text style={styles.actionText}>+ Add</Text>
+              <Text style={styles.actionText}>{t('profile.add')}</Text>
             </TouchableOpacity>
           </View>
           {credentials.length === 0 ? (
-            <Text style={styles.emptyText}>No credentials added yet.</Text>
+            <Text style={styles.emptyText}>{t('profile.certsEmpty')}</Text>
           ) : (
             credentials.map((cert) => (
               <View key={cert.id} style={styles.certRow}>
@@ -673,7 +694,7 @@ export default function Profile() {
                       { color: cert.verified ? '#00C67A' : '#F59E0B' },
                     ]}
                   >
-                    {cert.verified ? '✓ Verified' : 'Pending'}
+                    {cert.verified ? t('profile.certVerified') : t('profile.certPending')}
                   </Text>
                 </View>
               </View>
@@ -683,13 +704,13 @@ export default function Profile() {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Social Links</Text>
+            <Text style={styles.cardTitle}>{t('profile.socialTitle')}</Text>
             <TouchableOpacity onPress={() => setSocialModalVisible(true)} activeOpacity={0.7}>
-              <Text style={styles.actionText}>+ Add</Text>
+              <Text style={styles.actionText}>{t('profile.add')}</Text>
             </TouchableOpacity>
           </View>
           {socials.length === 0 ? (
-            <Text style={styles.socialEmpty}>Add your social links</Text>
+            <Text style={styles.socialEmpty}>{t('profile.socialEmpty')}</Text>
           ) : (
             socials.map((s) => (
               <View key={s.url} style={styles.socialRow}>
@@ -702,8 +723,36 @@ export default function Profile() {
           )}
         </View>
 
+        {/*
+          Language. The same chips as the radius sheet, so it reads as part
+          of the app rather than a bolted-on setting; the choice is saved
+          and beats the phone's own language from then on.
+        */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>{t('common.language')}</Text>
+          </View>
+          <View style={styles.radiusRow}>
+            {LANG_CHOICES.map((c) => {
+              const on = lang === c.lang;
+              return (
+                <TouchableOpacity
+                  key={c.lang}
+                  onPress={() => setLang(c.lang)}
+                  style={[styles.radiusChip, on && styles.radiusChipOn]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.radiusChipText, on && styles.radiusChipTextOn]}>
+                    {c.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-          <Text style={styles.logoutText}>Log Out</Text>
+          <Text style={styles.logoutText}>{t('profile.logOut')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -711,7 +760,7 @@ export default function Profile() {
           onPress={handleDeleteAccount}
           activeOpacity={0.8}
         >
-          <Text style={styles.deleteAccountText}>Delete Account</Text>
+          <Text style={styles.deleteAccountText}>{t('profile.deleteAccount')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -732,11 +781,8 @@ export default function Profile() {
       >
         <View style={styles.radiusBackdrop}>
           <View style={styles.radiusSheet}>
-            <Text style={styles.radiusTitle}>How far will you travel?</Text>
-            <Text style={styles.radiusNote}>
-              This decides which waitlist jobs reach you. A wider radius means more
-              jobs, further away.
-            </Text>
+            <Text style={styles.radiusTitle}>{t('profile.radiusTitle')}</Text>
+            <Text style={styles.radiusNote}>{t('profile.radiusNote')}</Text>
             <View style={styles.radiusRow}>
               {RADIUS_CHOICES.map((m) => {
                 const on = (profile?.coverageRadius ?? 10) === m;
@@ -748,7 +794,7 @@ export default function Profile() {
                     style={[styles.radiusChip, on && styles.radiusChipOn]}
                   >
                     <Text style={[styles.radiusChipText, on && styles.radiusChipTextOn]}>
-                      {m}mi
+                      {t('profile.radiusChip', { miles: m })}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -756,7 +802,7 @@ export default function Profile() {
             </View>
             <TouchableOpacity onPress={() => setRadiusOpen(false)} style={styles.radiusClose}>
               <Text style={styles.radiusCloseText}>
-                {radiusSaving ? 'Saving…' : 'Done'}
+                {radiusSaving ? t('common.saving') : t('common.done')}
               </Text>
             </TouchableOpacity>
           </View>

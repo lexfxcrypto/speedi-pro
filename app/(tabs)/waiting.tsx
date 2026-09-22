@@ -18,6 +18,7 @@ import {
 import { fetchWithAuth } from '../../lib/auth';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import { categoryLabel, getLang, t, useT, type TKey } from '../../lib/i18n';
 import { normalisePhone, whatsappUrl } from '../../lib/phone';
 // Lazy-mount: keep expo-iap's StoreKit observers out of the JS bundle
 // until the user actually wants to buy credits. Same Privacy guard
@@ -59,11 +60,11 @@ type MyProfile = {
 };
 
 function timeAgo(minutes: number): string {
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return t('waiting.timeJustNow');
+  if (minutes < 60) return t('waiting.timeMinutesAgo', { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return t('waiting.timeHoursAgo', { count: hours });
+  return t('waiting.timeDaysAgo', { count: Math.floor(hours / 24) });
 }
 
 function heat(minutes: number): 'hot' | 'warm' | 'cold' {
@@ -78,11 +79,13 @@ function heat(minutes: number): 'hot' | 'warm' | 'cold' {
  * near the end — which is exactly when it should be shouting.
  */
 function timeLeft(minutes: number): string {
-  if (minutes <= 0) return 'expired';
-  if (minutes < 60) return `${minutes}m left`;
+  if (minutes <= 0) return t('waiting.timeExpired');
+  if (minutes < 60) return t('waiting.timeMinutesLeft', { minutes });
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  return mins === 0 ? `${hours}h left` : `${hours}h ${mins}m left`;
+  return mins === 0
+    ? t('waiting.timeHoursLeft', { hours })
+    : t('waiting.timeHoursMinutesLeft', { hours, minutes: mins });
 }
 
 /**
@@ -114,7 +117,7 @@ function startOfToday(): number {
 
 function formatCompletedTime(iso: string | null): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleTimeString('en-GB', {
+  return new Date(iso).toLocaleTimeString(getLang() === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB', {
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -128,6 +131,7 @@ const HEAT_COLOR = {
 
 export default function Waiting() {
   const router = useRouter();
+  const { t } = useT();
   const [requests, setRequests] = useState<Request[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -190,13 +194,20 @@ export default function Waiting() {
       if (data.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setRequests((prev) => prev.filter((r) => r.id !== requestId));
-        const customerName = data.customerName ?? 'there';
+        const customerName = data.customerName ?? t('waiting.greetingFallbackName');
         const customerPhone: string | null = data.customerPhone ?? null;
         Alert.alert(
-          '✅ Job Accepted — 1 credit spent',
-          `Customer: ${data.customerName ?? 'Unknown'}\nPhone: ${
-            customerPhone || 'Not provided'
-          }\n\nYou have ${data.remainingCredits} credits remaining.`,
+          t('waiting.acceptedTitle'),
+          t(
+            data.remainingCredits === 1
+              ? 'waiting.acceptedBodyOne'
+              : 'waiting.acceptedBodyOther',
+            {
+              name: data.customerName ?? t('waiting.unknownCustomer'),
+              phone: customerPhone || t('waiting.notProvided'),
+              count: data.remainingCredits,
+            },
+          ),
           [
             {
               text: '🟢 WhatsApp',
@@ -205,52 +216,58 @@ export default function Waiting() {
               },
             },
             {
-              text: '📞 Call',
+              text: `📞 ${t('waiting.call')}`,
               onPress: () => {
                 if (customerPhone) Linking.openURL(`tel:${normalisePhone(customerPhone)}`);
               },
             },
             {
-              text: '💬 SMS',
+              text: `💬 ${t('waiting.sms')}`,
               onPress: () => {
                 if (!customerPhone) return;
-                const message =
-                  `Hi ${customerName}, it's ${myProfile?.name || `your ${getProviderNoun(myProfile)}`} ` +
-                  `from ${myProfile?.trade || 'Speedi'}. ` +
-                  `I've seen your Speedi request and I'm able to help. ` +
-                  `I'm free now and ready to come to you. ` +
-                  `What's the best time?`;
+                // getProviderNoun falls back to the English 'provider';
+                // swap that for the translated word, keep trade names as-is.
+                const noun = getProviderNoun(myProfile);
+                const message = t('waiting.smsAcceptedMessage', {
+                  name: customerName,
+                  sender:
+                    myProfile?.name ||
+                    t('waiting.smsYourProvider', {
+                      noun: noun === 'provider' ? t('waiting.providerFallback') : noun,
+                    }),
+                  business: myProfile?.trade || 'Speedi',
+                });
                 Linking.openURL(
                   `sms:${normalisePhone(customerPhone)}?body=${encodeURIComponent(message)}`,
                 );
               },
             },
-            { text: 'Later', style: 'cancel' },
+            { text: t('waiting.later'), style: 'cancel' },
           ],
         );
         loadJobs();
       } else if (data.code === 'NO_CREDITS') {
         if (SHOW_IAP_CREDITS) {
           Alert.alert(
-            'Not enough credits',
-            'You need at least 1 credit to accept a job.',
+            t('waiting.notEnoughCreditsTitle'),
+            t('waiting.notEnoughCreditsBody'),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Buy credits', onPress: () => setShowPurchaseSheet(true) },
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('waiting.buyCredits'), onPress: () => setShowPurchaseSheet(true) },
             ],
           );
         } else {
           Alert.alert(
-            'Not enough credits',
-            'You need at least 1 credit to accept a job. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
-            [{ text: 'OK' }],
+            t('waiting.notEnoughCreditsTitle'),
+            t('waiting.notEnoughCreditsWebBody'),
+            [{ text: t('common.ok') }],
           );
         }
       } else {
-        Alert.alert('Error', 'Could not accept job. Try again.');
+        Alert.alert(t('waiting.errorTitle'), t('waiting.acceptFailed'));
       }
     } catch {
-      Alert.alert('Error', 'Connection failed. Try again.');
+      Alert.alert(t('waiting.errorTitle'), t('waiting.connectionFailed'));
     } finally {
       setAccepting(null);
     }
@@ -268,47 +285,43 @@ export default function Waiting() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         loadJobs();
 
-        const customerName = job.customerName ?? 'there';
+        const customerName = job.customerName ?? t('waiting.greetingFallbackName');
         const customerPhone = job.customerPhone;
         const reviewSlug = myProfile?.username || myProfile?.id;
 
         Alert.alert(
-          '✅ Job Complete!',
-          `Want to ask ${customerName} for a review?`,
+          t('waiting.jobCompleteTitle'),
+          t('waiting.askForReview', { name: customerName }),
           [
             {
-              text: '🟢 Review via WhatsApp',
+              text: t('waiting.reviewViaWhatsApp'),
               onPress: () => {
                 if (!customerPhone || !reviewSlug) return;
                 const reviewUrl = `https://www.speeditrades.com/review/${reviewSlug}`;
-                const message =
-                  `Hi ${customerName}, thanks for using Speedi! ` +
-                  `I hope you were happy with the work. ` +
-                  `If you have a moment I'd really appreciate ` +
-                  `a quick review — it only takes 30 seconds: ` +
-                  `${reviewUrl}`;
+                const message = t('waiting.reviewRequestMessage', {
+                  name: customerName,
+                  url: reviewUrl,
+                });
                 Linking.openURL(
                   `${whatsappUrl(customerPhone)}?text=${encodeURIComponent(message)}`,
                 );
               },
             },
             {
-              text: '⭐ Review via SMS',
+              text: t('waiting.reviewViaSms'),
               onPress: () => {
                 if (!customerPhone || !reviewSlug) return;
                 const reviewUrl = `https://www.speeditrades.com/review/${reviewSlug}`;
-                const message =
-                  `Hi ${customerName}, thanks for using Speedi! ` +
-                  `I hope you were happy with the work. ` +
-                  `If you have a moment I'd really appreciate ` +
-                  `a quick review — it only takes 30 seconds: ` +
-                  `${reviewUrl}`;
+                const message = t('waiting.reviewRequestMessage', {
+                  name: customerName,
+                  url: reviewUrl,
+                });
                 Linking.openURL(
                   `sms:${normalisePhone(customerPhone)}?body=${encodeURIComponent(message)}`,
                 );
               },
             },
-            { text: 'Maybe later', style: 'cancel' },
+            { text: t('waiting.maybeLater'), style: 'cancel' },
           ],
         );
       }
@@ -351,15 +364,15 @@ export default function Waiting() {
         stickyHeaderIndices={[0, 2]}
       >
         <View style={styles.stickyHeader}>
-          <Text style={styles.sectionTitle}>Active Jobs</Text>
+          <Text style={styles.sectionTitle}>{t('waiting.activeJobs')}</Text>
         </View>
 
         <View>
           {activeJobs.length === 0 ? (
             <View style={styles.emptyBlock}>
-              <Text style={styles.emptyText}>No active jobs right now</Text>
+              <Text style={styles.emptyText}>{t('waiting.noActiveJobs')}</Text>
               <Text style={styles.emptySub}>
-                Accept a request below to get started
+                {t('waiting.noActiveJobsHint')}
               </Text>
             </View>
           ) : (
@@ -368,14 +381,14 @@ export default function Waiting() {
               return (
                 <View key={job.id} style={styles.jobCard}>
                   <View style={styles.rowBetween}>
-                    <Text style={styles.jobName}>{job.customerName ?? 'Customer'}</Text>
+                    <Text style={styles.jobName}>{job.customerName ?? t('waiting.customer')}</Text>
                     <View style={[styles.statusPill, { backgroundColor: '#00C67A22' }]}>
                       <Text style={[styles.statusText, { color: '#00C67A' }]}>
-                        ● In Progress
+                        {t('waiting.inProgress')}
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.jobMeta}>{job.jobType}</Text>
+                  <Text style={styles.jobMeta}>{categoryLabel(job.jobType)}</Text>
                   {job.description ? (
                     <Text style={styles.jobMeta}>{job.description}</Text>
                   ) : null}
@@ -390,7 +403,7 @@ export default function Waiting() {
                       onPress={() => callPhone(job.customerPhone)}
                       disabled={!job.customerPhone}
                     >
-                      <Text style={[styles.contactText, { color: '#60A5FA' }]}>📞 Call</Text>
+                      <Text style={[styles.contactText, { color: '#60A5FA' }]}>📞 {t('waiting.call')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[
@@ -401,7 +414,7 @@ export default function Waiting() {
                       onPress={() => smsPhone(job.customerPhone)}
                       disabled={!job.customerPhone}
                     >
-                      <Text style={[styles.contactText, { color: '#00C67A' }]}>💬 SMS</Text>
+                      <Text style={[styles.contactText, { color: '#00C67A' }]}>💬 {t('waiting.sms')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[
@@ -412,7 +425,7 @@ export default function Waiting() {
                       onPress={() => emailUser(job.customerEmail)}
                       disabled={!job.customerEmail}
                     >
-                      <Text style={[styles.contactText, { color: '#9CA3AF' }]}>✉️ Email</Text>
+                      <Text style={[styles.contactText, { color: '#9CA3AF' }]}>✉️ {t('waiting.email')}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -425,11 +438,11 @@ export default function Waiting() {
                       {isCompleting ? (
                         <ActivityIndicator color="#FFFFFF" />
                       ) : (
-                        <Text style={styles.completeText}>✓ Mark Complete</Text>
+                        <Text style={styles.completeText}>{t('waiting.markComplete')}</Text>
                       )}
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.deleteBtn}>
-                      <Text style={styles.deleteText}>Delete</Text>
+                      <Text style={styles.deleteText}>{t('common.delete')}</Text>
                     </TouchableOpacity>
                   </View>
                   {/* Refund "reclaim credit" footer — quiet by design.
@@ -441,7 +454,7 @@ export default function Waiting() {
                       onPress={() => setRefundingJob(job)}
                     >
                       <Text style={styles.refundFooterText}>
-                        Report this connection · reclaim credit
+                        {t('waiting.reportConnectionFooter')}
                       </Text>
                     </TouchableOpacity>
                   ) : (
@@ -460,10 +473,10 @@ export default function Waiting() {
                         ]}
                       >
                         {job.refundStatus === 'APPROVED'
-                          ? 'Credit refunded ✓'
+                          ? t('waiting.creditRefunded')
                           : job.refundStatus === 'REJECTED'
-                          ? 'Refund declined'
-                          : 'Refund request under review'}
+                          ? t('waiting.refundDeclined')
+                          : t('waiting.refundUnderReview')}
                       </Text>
                     </View>
                   )}
@@ -474,15 +487,15 @@ export default function Waiting() {
         </View>
 
         <View style={styles.stickyHeader}>
-          <Text style={styles.sectionTitle}>Live Requests Near You</Text>
+          <Text style={styles.sectionTitle}>{t('waiting.liveRequests')}</Text>
         </View>
 
         <View>
           {todayRequests.length === 0 ? (
             <View style={styles.emptyBlock}>
-              <Text style={styles.emptyText}>No new requests today</Text>
+              <Text style={styles.emptyText}>{t('waiting.noRequestsToday')}</Text>
               <Text style={styles.emptySub}>
-                You'll be notified when jobs come in
+                {t('waiting.noRequestsHint')}
               </Text>
             </View>
           ) : (
@@ -506,8 +519,8 @@ export default function Waiting() {
                     ) : null}
                     <Text style={styles.requestMeta}>
                       {req.distanceMiles !== null
-                        ? `${req.distanceMiles}mi`
-                        : 'Distance unknown'}
+                        ? t('waiting.distanceMiles', { miles: req.distanceMiles })
+                        : t('waiting.distanceUnknown')}
                       {req.customerName ? ` · ${req.customerName}` : ''}
                     </Text>
 
@@ -520,7 +533,7 @@ export default function Waiting() {
                         minutesLeft is never more than that stale. */}
                     <View style={styles.expiryStrip}>
                       <Text style={styles.expiryAdded}>
-                        Added {timeAgo(req.minutesAgo)}
+                        {t('waiting.addedAgo', { ago: timeAgo(req.minutesAgo) })}
                       </Text>
                       <Text
                         style={[
@@ -544,11 +557,11 @@ export default function Waiting() {
                         {isAccepting ? (
                           <ActivityIndicator color="#FFFFFF" />
                         ) : (
-                          <Text style={styles.acceptText}>Accept · 1 credit</Text>
+                          <Text style={styles.acceptText}>{t('waiting.acceptButton')}</Text>
                         )}
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.viewBtn}>
-                        <Text style={styles.viewText}>👁 View</Text>
+                        <Text style={styles.viewText}>{t('waiting.view')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -566,8 +579,12 @@ export default function Waiting() {
               activeOpacity={0.8}
             >
               <Text style={styles.completedToggleText}>
-                ✓ Recently completed ({completedRecent.length}{' '}
-                {completedRecent.length === 1 ? 'job' : 'jobs'})
+                {t(
+                  completedRecent.length === 1
+                    ? 'waiting.recentlyCompletedOne'
+                    : 'waiting.recentlyCompletedOther',
+                  { count: completedRecent.length },
+                )}
               </Text>
               <Text style={styles.completedChevron}>{showCompleted ? '˅' : '›'}</Text>
             </TouchableOpacity>
@@ -578,15 +595,15 @@ export default function Waiting() {
                   <View style={styles.completedBar} />
                   <View style={styles.completedBody}>
                     <Text style={styles.completedName}>
-                      {job.customerName ?? 'Customer'}
+                      {job.customerName ?? t('waiting.customer')}
                     </Text>
-                    <Text style={styles.completedMeta}>{job.jobType}</Text>
+                    <Text style={styles.completedMeta}>{categoryLabel(job.jobType)}</Text>
                     {job.description ? (
                       <Text style={styles.completedDescription}>{job.description}</Text>
                     ) : null}
                     {job.acceptedAt ? (
                       <Text style={styles.completedTime}>
-                        Completed · {formatCompletedTime(job.acceptedAt)}
+                        {t('waiting.completedAt', { time: formatCompletedTime(job.acceptedAt) })}
                       </Text>
                     ) : null}
                     {job.customerPhone || job.customerEmail ? (
@@ -597,13 +614,13 @@ export default function Waiting() {
                               style={styles.completedActionBtn}
                               onPress={() => callPhone(job.customerPhone)}
                             >
-                              <Text style={styles.completedActionText}>📞 Call</Text>
+                              <Text style={styles.completedActionText}>📞 {t('waiting.call')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                               style={styles.completedActionBtn}
                               onPress={() => smsPhone(job.customerPhone)}
                             >
-                              <Text style={styles.completedActionText}>💬 SMS</Text>
+                              <Text style={styles.completedActionText}>💬 {t('waiting.sms')}</Text>
                             </TouchableOpacity>
                           </>
                         ) : null}
@@ -612,13 +629,13 @@ export default function Waiting() {
                             style={styles.completedActionBtn}
                             onPress={() => emailUser(job.customerEmail)}
                           >
-                            <Text style={styles.completedActionText}>✉ Email</Text>
+                            <Text style={styles.completedActionText}>✉ {t('waiting.email')}</Text>
                           </TouchableOpacity>
                         ) : null}
                       </View>
                     ) : (
                       <Text style={styles.completedNoContact}>
-                        No contact details captured for this customer
+                        {t('waiting.noContactDetails')}
                       </Text>
                     )}
                   </View>
@@ -632,7 +649,7 @@ export default function Waiting() {
           onPress={() => router.push('/job-history')}
           activeOpacity={0.8}
         >
-          <Text style={styles.historyText}>View job history</Text>
+          <Text style={styles.historyText}>{t('waiting.viewJobHistory')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -657,12 +674,13 @@ export default function Waiting() {
   );
 }
 
-const REFUND_REASONS: Array<{ value: string; label: string }> = [
-  { value: 'NEVER_REPLIED', label: 'Customer never replied' },
-  { value: 'PRO_ON_PRO', label: 'Another tradesperson — not a real customer' },
-  { value: 'SPAM', label: 'Spam or harassment' },
-  { value: 'FAKE_JOB', label: 'Made-up job' },
-  { value: 'OTHER', label: 'Other (describe below)' },
+// Labels are keys, looked up at render so a language switch applies.
+const REFUND_REASONS: Array<{ value: string; label: TKey }> = [
+  { value: 'NEVER_REPLIED', label: 'waiting.refundReasonNeverReplied' },
+  { value: 'PRO_ON_PRO', label: 'waiting.refundReasonProOnPro' },
+  { value: 'SPAM', label: 'waiting.refundReasonSpam' },
+  { value: 'FAKE_JOB', label: 'waiting.refundReasonFakeJob' },
+  { value: 'OTHER', label: 'waiting.refundReasonOther' },
 ];
 
 function RefundConnectionModal({
@@ -674,6 +692,7 @@ function RefundConnectionModal({
   onClose: () => void;
   onSubmitted: () => void;
 }) {
+  const { t } = useT();
   const [reason, setReason] = useState<string>('NEVER_REPLIED');
   const [reasonNote, setReasonNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -692,7 +711,7 @@ function RefundConnectionModal({
 
   const handleSubmit = async () => {
     if (reason === 'OTHER' && !reasonNote.trim()) {
-      setError('Please describe the issue.');
+      setError(t('waiting.refundDescribeIssue'));
       return;
     }
     setSubmitting(true);
@@ -708,12 +727,12 @@ function RefundConnectionModal({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body.ok) {
-        setError(body.error ?? "Couldn't file the refund");
+        setError(body.error ?? t('waiting.refundFileFailed'));
       } else {
         onSubmitted();
       }
     } catch {
-      setError('Network error');
+      setError(t('waiting.refundNetworkError'));
     } finally {
       setSubmitting(false);
     }
@@ -731,9 +750,9 @@ function RefundConnectionModal({
           <View style={styles.handle} />
           <View style={styles.refundHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.refundTitle}>Report this connection</Text>
+              <Text style={styles.refundTitle}>{t('waiting.refundTitle')}</Text>
               <Text style={styles.refundSubtitle} numberOfLines={2}>
-                {job.jobType}
+                {categoryLabel(job.jobType)}
                 {job.description ? ` · "${job.description.slice(0, 60)}${job.description.length > 60 ? '…' : ''}"` : ''}
               </Text>
             </View>
@@ -765,7 +784,7 @@ function RefundConnectionModal({
                       selected && styles.refundReasonTextSelected,
                     ]}
                   >
-                    {r.label}
+                    {t(r.label)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -776,8 +795,8 @@ function RefundConnectionModal({
               onChangeText={setReasonNote}
               placeholder={
                 reason === 'OTHER'
-                  ? 'Describe what happened (required)'
-                  : 'Anything we should know (optional)'
+                  ? t('waiting.refundNoteRequired')
+                  : t('waiting.refundNoteOptional')
               }
               placeholderTextColor="#6B7280"
               multiline
@@ -797,11 +816,11 @@ function RefundConnectionModal({
             {submitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.refundSubmitText}>Send refund request</Text>
+              <Text style={styles.refundSubmitText}>{t('waiting.refundSubmit')}</Text>
             )}
           </TouchableOpacity>
           <Text style={styles.refundFooterCopy}>
-            Speedi reviews every refund. Approved cases get the credit back within a day.
+            {t('waiting.refundFooterCopy')}
           </Text>
         </Pressable>
       </Pressable>

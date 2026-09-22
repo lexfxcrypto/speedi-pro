@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import { fetchWithAuth } from '../lib/auth';
+import { useT } from '../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 
@@ -28,6 +29,7 @@ const API = 'https://www.speeditrades.com';
  * have to scan it with.
  */
 export function BuildYourList({ accent }: { accent: string }) {
+  const { t } = useT();
   const [providerId, setProviderId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -56,7 +58,7 @@ export function BuildYourList({ accent }: { accent: string }) {
           size={15}
           color="rgba(255,255,255,0.5)"
         />
-        <Text style={styles.headerText}>Get your clients on your list</Text>
+        <Text style={styles.headerText}>{t('modals.buildListHeader')}</Text>
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={15}
@@ -66,11 +68,7 @@ export function BuildYourList({ accent }: { accent: string }) {
 
       {open ? (
         <View style={styles.body}>
-          <Text style={styles.hint}>
-            They get a notification the moment you go green, or when you post
-            a cancellation. Show the code at the counter, or send them the
-            link.
-          </Text>
+          <Text style={styles.hint}>{t('modals.buildListHint')}</Text>
 
           <View style={styles.row}>
             <View style={styles.qrBox}>
@@ -87,25 +85,22 @@ export function BuildYourList({ accent }: { accent: string }) {
                      * regular who leaves it is told a single time and
                      * never again.
                      */
-                    message:
-                      `We're usually booked up — but if we get a cancellation, it goes on Speedi first.\n\n` +
-                      `Tap here, download the free app and hit "Notify me" (tick "tell me every time"), ` +
-                      `and you'll know the moment a slot opens up:\n${link}`,
+                    message: t('modals.buildListShareMessage', { link }),
                   })
                 }
                 style={[styles.btn, { backgroundColor: accent }]}
               >
-                <Text style={styles.btnText}>Send to clients</Text>
+                <Text style={styles.btnText}>{t('modals.buildListSend')}</Text>
               </Pressable>
               <Pressable
                 onPress={async () => {
                   await Clipboard.setStringAsync(link);
-                  Alert.alert('Copied', 'Paste it in your bio or a story.');
+                  Alert.alert(t('modals.buildListCopiedTitle'), t('modals.buildListCopiedMessage'));
                 }}
                 style={styles.btnAlt}
               >
                 <Text style={[styles.btnAltText, { color: accent }]}>
-                  Copy link
+                  {t('modals.buildListCopy')}
                 </Text>
               </Pressable>
             </View>

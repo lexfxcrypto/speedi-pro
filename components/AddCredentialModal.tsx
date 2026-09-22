@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
-import type { CertSuggestion } from '../lib/certifications';
+import { certificationDescription, certificationLabel, type CertSuggestion } from '../lib/certifications';
+import { useT } from '../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 const THEME = '#E64A19';
@@ -29,6 +30,7 @@ export default function AddCredentialModal({
   onSuccess,
   suggestions,
 }: Props) {
+  const { t, lang } = useT();
   const initial = suggestions[0] ?? null;
   const [selectedSuggestion, setSelectedSuggestion] = useState<CertSuggestion | null>(initial);
   const [title, setTitle] = useState(initial?.label ?? '');
@@ -45,15 +47,15 @@ export default function AddCredentialModal({
 
   const handleSubmit = async () => {
     if (!selectedSuggestion?.enumValue) {
-      setError('Pick a credential type');
+      setError(t('modals.addCredentialPickType'));
       return;
     }
     if (!title.trim()) {
-      setError('Title is required');
+      setError(t('modals.addCredentialTitleRequired'));
       return;
     }
     if (!issuedBy.trim()) {
-      setError('Issuer is required');
+      setError(t('modals.addCredentialIssuerRequired'));
       return;
     }
     setSubmitting(true);
@@ -70,7 +72,7 @@ export default function AddCredentialModal({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to add credential');
+        throw new Error(data.error || t('modals.addCredentialFailed'));
       }
       setSelectedSuggestion(initial);
       setTitle(initial?.label ?? '');
@@ -78,7 +80,7 @@ export default function AddCredentialModal({
       setExpiryDate(null);
       onSuccess();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add credential');
+      setError(e instanceof Error ? e.message : t('modals.addCredentialFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -94,14 +96,14 @@ export default function AddCredentialModal({
       <View style={styles.safe}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} disabled={submitting}>
-            <Text style={styles.headerCancel}>Cancel</Text>
+            <Text style={styles.headerCancel}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add credential</Text>
+          <Text style={styles.headerTitle}>{t('modals.addCredentialTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <Text style={styles.fieldLabel}>Credential type</Text>
+          <Text style={styles.fieldLabel}>{t('modals.addCredentialType')}</Text>
           <View style={styles.pillWrap}>
             {suggestions.map((s) => {
               const selected = selectedSuggestion?.label === s.label;
@@ -116,42 +118,42 @@ export default function AddCredentialModal({
                   activeOpacity={0.85}
                 >
                   <Text style={[styles.choicePillText, selected && { color: '#FFFFFF' }]}>
-                    {s.label}
+                    {certificationLabel(s.label)}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
           {selectedSuggestion?.description ? (
-            <Text style={styles.helperText}>{selectedSuggestion.description}</Text>
+            <Text style={styles.helperText}>{certificationDescription(selectedSuggestion.description)}</Text>
           ) : null}
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Title</Text>
+            <Text style={styles.fieldLabel}>{t('modals.addCredentialTitleLabel')}</Text>
             <TextInput
               style={styles.input}
               value={title}
               onChangeText={setTitle}
-              placeholder="e.g. Gas Safe Register"
+              placeholder={t('modals.addCredentialTitlePlaceholder')}
               placeholderTextColor="#6B7280"
               autoCapitalize="words"
             />
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Issued by</Text>
+            <Text style={styles.fieldLabel}>{t('modals.addCredentialIssuedBy')}</Text>
             <TextInput
               style={styles.input}
               value={issuedBy}
               onChangeText={setIssuedBy}
-              placeholder="e.g. Gas Safe Register Ltd"
+              placeholder={t('modals.addCredentialIssuedByPlaceholder')}
               placeholderTextColor="#6B7280"
               autoCapitalize="words"
             />
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Expiry date (optional)</Text>
+            <Text style={styles.fieldLabel}>{t('modals.addCredentialExpiry')}</Text>
             <TouchableOpacity
               style={styles.input}
               onPress={() => setShowDatePicker(true)}
@@ -159,12 +161,12 @@ export default function AddCredentialModal({
             >
               <Text style={[styles.dateText, !expiryDate && { color: '#6B7280' }]}>
                 {expiryDate
-                  ? expiryDate.toLocaleDateString('en-GB', {
+                  ? expiryDate.toLocaleDateString(lang === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
                     })
-                  : 'Tap to set'}
+                  : t('modals.addCredentialTapToSet')}
               </Text>
             </TouchableOpacity>
             {showDatePicker && (
@@ -196,7 +198,7 @@ export default function AddCredentialModal({
             {submitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitButtonText}>Save credential</Text>
+              <Text style={styles.submitButtonText}>{t('modals.addCredentialSave')}</Text>
             )}
           </TouchableOpacity>
         </View>

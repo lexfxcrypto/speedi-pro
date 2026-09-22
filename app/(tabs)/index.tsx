@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { fetchWithAuth, logout } from '../../lib/auth';
 import { SHOW_COMPANIES, SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import { getLang, t, useT, type TKey } from '../../lib/i18n';
 import { startLiveLocationTracking, stopLiveLocationTracking } from '../../lib/location';
 import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 import { WaitingListPanel } from '../../components/WaitingListPanel';
@@ -30,11 +31,11 @@ const API = 'https://www.speeditrades.com';
 type Light = 'red' | 'amber' | 'green';
 type TlState = Light | 'offline';
 
-const STATUS_TEXT: Record<TlState, string> = {
-  green: 'Available Now',
-  amber: 'Finishing Up',
-  red: 'Busy',
-  offline: 'Offline — not visible on map',
+const STATUS_TEXT: Record<TlState, TKey> = {
+  green: 'home.statusGreen',
+  amber: 'home.statusAmber',
+  red: 'home.statusRed',
+  offline: 'home.statusOffline',
 };
 
 const STATUS_COLOR: Record<TlState, string> = {
@@ -113,16 +114,16 @@ function formatTime(total: number): string {
 }
 
 function countdownLabel(state: Light, time: string): string {
-  if (state === 'red') return `${STATUS_EMOJI.red} Busy · Free in ${time}`;
-  if (state === 'amber') return `${STATUS_EMOJI.amber} Finishing Up · Available in ${time}`;
-  return `${STATUS_EMOJI.green} Available Now · ${time} remaining`;
+  if (state === 'red') return t('home.countdownRed', { emoji: STATUS_EMOJI.red, time });
+  if (state === 'amber') return t('home.countdownAmber', { emoji: STATUS_EMOJI.amber, time });
+  return t('home.countdownGreen', { emoji: STATUS_EMOJI.green, time });
 }
 
 function greetingForNow(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return t('home.greetingMorning');
+  if (h < 17) return t('home.greetingAfternoon');
+  return t('home.greetingEvening');
 }
 
 const APPROVED_BASE_URL = 'https://www.speeditrades.com';
@@ -151,10 +152,10 @@ function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
   const tier = info?.tier ?? null;
 
   if (status === 'active' && credStatus === 'verified') {
-    const tierLabel = tier === 'premises' ? 'Premises' : 'Mobile';
+    const tierLabel = tier === 'premises' ? t('home.tierPremises') : t('home.tierMobile');
     return {
       title: 'Speedi Approved',
-      subtitle: `Active · ${tierLabel}`,
+      subtitle: t('home.approvedActive', { tier: tierLabel }),
       deepLink: `${APPROVED_BASE_URL}/dashboard/approved`,
       borderColor: '#00C67A',
       showCheck: true,
@@ -162,18 +163,20 @@ function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
   }
 
   if (status === 'active') {
-    let subtitle = 'Upload your credentials to activate';
+    let subtitle = t('home.approvedUploadCredentials');
     if (info?.credentialsDeadline) {
       const d = new Date(info.credentialsDeadline);
       if (!isNaN(d.getTime())) {
-        subtitle = `Upload credentials by ${d.toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'short',
-        })}`;
+        subtitle = t('home.approvedUploadBy', {
+          date: d.toLocaleDateString(getLang() === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB', {
+            day: 'numeric',
+            month: 'short',
+          }),
+        });
       }
     }
     return {
-      title: '⏳ Speedi Approved — pending',
+      title: t('home.approvedPendingTitle'),
       subtitle,
       deepLink: `${APPROVED_BASE_URL}/approved/credentials`,
       borderColor: '#F59E0B',
@@ -183,15 +186,16 @@ function getApprovedDisplay(info: ApprovedInfo | null): ApprovedDisplay {
   if (status === 'cancelled' || status === 'paused') {
     return {
       title: 'Speedi Approved',
-      subtitle: status === 'cancelled' ? 'Cancelled — re-enrol' : 'Paused — resume',
+      subtitle:
+        status === 'cancelled' ? t('home.approvedCancelled') : t('home.approvedPaused'),
       deepLink: `${APPROVED_BASE_URL}/approved`,
       borderColor: '#6B7280',
     };
   }
 
   return {
-    title: '👑 Get Speedi Approved',
-    subtitle: 'Verified badge + monthly credits',
+    title: t('home.approvedGetTitle'),
+    subtitle: t('home.approvedPitch'),
     deepLink: `${APPROVED_BASE_URL}/approved`,
     borderColor: '#E64A19',
   };
@@ -266,6 +270,8 @@ const BUILD_LABEL = (() => {
 
 export default function Home() {
   const router = useRouter();
+  const { t, lang } = useT();
+  const locale = lang === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB';
   const [tlState, setTlState] = useState<TlState>('offline');
   const [userName, setUserName] = useState('Alex Hacking');
   const [credits, setCredits] = useState(0);
@@ -485,7 +491,7 @@ export default function Home() {
           lastMessageIdRef.current = unread[0].id;
           setMessageAlert({
             id: unread[0].id,
-            otherUserName: unread[0].otherUserName ?? 'Unknown',
+            otherUserName: unread[0].otherUserName ?? t('home.unknown'),
             lastMessage: unread[0].lastMessage ?? '',
           });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -856,17 +862,16 @@ export default function Home() {
       if (next && data?.diagnostics && !data.diagnostics.showsOnMap) {
         const reasons: string[] = [];
         const d = data.diagnostics;
-        if (!d.roleOk) reasons.push(`• Your role is "${d.role}", needs to be TRADESPERSON`);
-        if (!d.providerTypeOk)
-          reasons.push(`• providerType is "service" — switch to a non-service type`);
-        if (!d.hasLatLng) reasons.push('• Tap green first to share your live location');
-        if (!d.notDemo) reasons.push('• Account is flagged as demo');
-        if (!d.availableForQuotes) reasons.push('• Server rejected the toggle');
-        if (!d.quotesAvailableUntilOk) reasons.push('• Expiry did not set correctly');
+        if (!d.roleOk) reasons.push(t('home.diagRole', { role: d.role }));
+        if (!d.providerTypeOk) reasons.push(t('home.diagProviderType'));
+        if (!d.hasLatLng) reasons.push(t('home.diagLocation'));
+        if (!d.notDemo) reasons.push(t('home.diagDemo'));
+        if (!d.availableForQuotes) reasons.push(t('home.diagRejected'));
+        if (!d.quotesAvailableUntilOk) reasons.push(t('home.diagExpiry'));
         Alert.alert(
-          "You won't show on the quotes map yet",
-          reasons.join('\n') || 'Unknown reason — check with support.',
-          [{ text: 'OK' }],
+          t('home.quotesMapAlertTitle'),
+          reasons.join('\n') || t('home.quotesMapUnknown'),
+          [{ text: t('common.ok') }],
         );
       }
     } catch (e) {
@@ -929,7 +934,7 @@ export default function Home() {
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Text style={styles.logoutPillText}>Log Out</Text>
+            <Text style={styles.logoutPillText}>{t('home.logOut')}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.header}>
@@ -940,7 +945,7 @@ export default function Home() {
           />
           <Text style={styles.greeting}>
             {greetingForNow()},{'\n'}
-            {userName || 'there'}
+            {userName || t('home.greetingFallbackName')}
           </Text>
         </View>
 
@@ -954,7 +959,7 @@ export default function Home() {
           <View style={styles.messageBanner}>
             <View style={{ flex: 1 }}>
               <Text style={styles.messageBannerTitle}>
-                💬 New message from {messageAlert.otherUserName}
+                {t('home.newMessageFrom', { name: messageAlert.otherUserName })}
               </Text>
               <Text style={styles.messageBannerBody} numberOfLines={1}>
                 {messageAlert.lastMessage?.substring(0, 50)}
@@ -969,7 +974,7 @@ export default function Home() {
               }}
               style={styles.bannerReplyBtn}
             >
-              <Text style={styles.bannerReplyText}>Reply</Text>
+              <Text style={styles.bannerReplyText}>{t('home.reply')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -992,9 +997,11 @@ export default function Home() {
             style={styles.messageBanner}
           >
             <View style={{ flex: 1 }}>
-              <Text style={styles.messageBannerTitle}>📋 New quote request</Text>
+              <Text style={styles.messageBannerTitle}>{t('home.newQuoteRequest')}</Text>
               <Text style={styles.messageBannerBody} numberOfLines={1}>
-                {quoteAlert.latest?.jobType || 'Tap to view'} — tap to respond
+                {t('home.quoteBannerBody', {
+                  jobType: quoteAlert.latest?.jobType || t('home.tapToView'),
+                })}
               </Text>
             </View>
             <Text style={styles.messageBannerArrow}>→</Text>
@@ -1013,15 +1020,18 @@ export default function Home() {
             <View style={{ flex: 1 }}>
               <Text style={styles.messageBannerTitle}>
                 {waitingAlert.count > 1
-                  ? `🆕 ${waitingAlert.count} new waitlist jobs nearby`
-                  : '🆕 New waitlist job nearby'}
+                  ? t('home.newWaitlistJobsOther', { count: waitingAlert.count })
+                  : t('home.newWaitlistJobOne')}
               </Text>
               <Text style={styles.messageBannerBody} numberOfLines={1}>
                 {waitingAlert.latestJobType
                   ? waitingAlert.latestDistance != null
-                    ? `${waitingAlert.latestJobType} — ${waitingAlert.latestDistance.toFixed(1)} mi away`
+                    ? t('home.jobDistance', {
+                        jobType: waitingAlert.latestJobType,
+                        distance: waitingAlert.latestDistance.toFixed(1),
+                      })
                     : waitingAlert.latestJobType
-                  : 'Tap to view'}
+                  : t('home.tapToView')}
               </Text>
             </View>
             <Text style={styles.messageBannerArrow}>→</Text>
@@ -1039,13 +1049,14 @@ export default function Home() {
           >
             <View style={{ flex: 1 }}>
               <Text style={styles.messageBannerTitle}>
-                📨 New company message
                 {companyBannerMsg.intendedReceiver?.name
-                  ? ` for ${companyBannerMsg.intendedReceiver.name}`
-                  : ''}
+                  ? t('home.newCompanyMessageFor', {
+                      name: companyBannerMsg.intendedReceiver.name,
+                    })
+                  : t('home.newCompanyMessage')}
               </Text>
               <Text style={styles.messageBannerBody} numberOfLines={1}>
-                {companyBannerMsg.sender.name ?? 'Someone'} —{' '}
+                {companyBannerMsg.sender.name ?? t('home.someone')} —{' '}
                 {companyBannerMsg.content?.substring(0, 60)}
               </Text>
             </View>
@@ -1053,7 +1064,7 @@ export default function Home() {
           </TouchableOpacity>
         )}
 
-        <Text style={[styles.statusText, { color: activeColor }]}>{STATUS_TEXT[tlState]}</Text>
+        <Text style={[styles.statusText, { color: activeColor }]}>{t(STATUS_TEXT[tlState])}</Text>
 
         {hasTimer && tlState !== 'offline' && (
           <View style={styles.countdownBlock}>
@@ -1074,7 +1085,7 @@ export default function Home() {
         {tlState === 'green' && (
           <View style={styles.liveIndicator}>
             <Animated.View style={[styles.liveDot, { opacity: livePulse }]} />
-            <Text style={styles.liveText}>Live · updating location</Text>
+            <Text style={styles.liveText}>{t('home.liveUpdating')}</Text>
           </View>
         )}
 
@@ -1093,7 +1104,7 @@ export default function Home() {
                 tlState === 'offline' && { color: '#00C67A' },
               ]}
             >
-              {tlState === 'offline' ? '● Go Online' : '● Go Offline'}
+              {tlState === 'offline' ? t('home.goOnline') : t('home.goOffline')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1152,14 +1163,14 @@ export default function Home() {
         <TextInput
           value={greenNote}
           onChangeText={setGreenNote}
-          placeholder="Available for… quotes, small jobs, consultations"
+          placeholder={t('home.notePlaceholder')}
           placeholderTextColor="rgba(255,255,255,0.35)"
           maxLength={60}
           style={styles.noteInput}
         />
 
         <View style={styles.hoursRow}>
-          <Text style={styles.hoursLabel}>Green for</Text>
+          <Text style={styles.hoursLabel}>{t('home.greenFor')}</Text>
           {/*
             Mirrors CHOOSABLE_HOURS on the server (speedi/src/lib/
             availabilityStepping.ts). Six hours was asked for and
@@ -1193,7 +1204,7 @@ export default function Home() {
                 style={[styles.hoursPill, on && styles.hoursPillOn]}
               >
                 <Text style={[styles.hoursPillText, on && styles.hoursPillTextOn]}>
-                  {h} hour{h === 1 ? '' : 's'}
+                  {h === 1 ? t('home.hoursOne', { count: h }) : t('home.hoursOther', { count: h })}
                 </Text>
               </TouchableOpacity>
             );
@@ -1208,14 +1219,16 @@ export default function Home() {
         dismissedEventId !== currentEvent.id ? (
           <View style={styles.eventSuggest}>
             <Text style={styles.eventSuggestText}>
-              📅 You have <Text style={styles.eventSuggestStrong}>{currentEvent.title}</Text>{' '}
-              until{' '}
-              {new Date(currentEvent.endTime).toLocaleTimeString('en-GB', {
-                hour: 'numeric',
-                minute: '2-digit',
+              {t('home.eventYouHave')}{' '}
+              <Text style={styles.eventSuggestStrong}>{currentEvent.title}</Text>{' '}
+              {t('home.eventUntil', {
+                time: new Date(currentEvent.endTime).toLocaleTimeString(locale, {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                }),
               })}
             </Text>
-            <Text style={styles.eventSuggestSub}>Want to go red automatically?</Text>
+            <Text style={styles.eventSuggestSub}>{t('home.eventGoRedPrompt')}</Text>
             <View style={styles.eventSuggestRow}>
               <TouchableOpacity
                 style={styles.eventSuggestPrimary}
@@ -1224,13 +1237,13 @@ export default function Home() {
                   setDismissedEventId(currentEvent.id);
                 }}
               >
-                <Text style={styles.eventSuggestPrimaryText}>Go Red</Text>
+                <Text style={styles.eventSuggestPrimaryText}>{t('home.goRed')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.eventSuggestSecondary}
                 onPress={() => setDismissedEventId(currentEvent.id)}
               >
-                <Text style={styles.eventSuggestSecondaryText}>Dismiss</Text>
+                <Text style={styles.eventSuggestSecondaryText}>{t('home.dismiss')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1239,17 +1252,17 @@ export default function Home() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={[styles.statValue, { color: '#E64A19' }]}>{credits}</Text>
-            <Text style={styles.statLabel}>Credits</Text>
+            <Text style={styles.statLabel}>{t('home.statCredits')}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={[styles.statValue, { color: '#00C67A' }]}>{jobsToday}</Text>
-            <Text style={styles.statLabel}>Jobs Today</Text>
+            <Text style={styles.statLabel}>{t('home.statJobsToday')}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={[styles.statValue, { color: '#FFFFFF' }]}>
               {rating !== null ? `${rating.toFixed(1)}★` : '—'}
             </Text>
-            <Text style={styles.statLabel}>Rating</Text>
+            <Text style={styles.statLabel}>{t('home.statRating')}</Text>
           </View>
         </View>
 
@@ -1258,9 +1271,9 @@ export default function Home() {
           companyMessages.length > 0 && (
             <View style={styles.companyInbox}>
               <View style={styles.companyInboxHeader}>
-                <Text style={styles.companyInboxTitle}>📨 Company Inbox</Text>
+                <Text style={styles.companyInboxTitle}>{t('home.companyInbox')}</Text>
                 <Text style={styles.companyInboxCount}>
-                  {companyMessages.length} pending
+                  {t('home.companyPending', { count: companyMessages.length })}
                 </Text>
               </View>
               {companyMessages.slice(0, 5).map((m) => (
@@ -1272,14 +1285,16 @@ export default function Home() {
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.companyMsgFor}>
-                      For {m.intendedReceiver?.name ?? 'your company'}
+                      {t('home.companyMsgFor', {
+                        name: m.intendedReceiver?.name ?? t('home.yourCompany'),
+                      })}
                     </Text>
                     <Text style={styles.companyMsgPreview} numberOfLines={2}>
                       {m.content}
                     </Text>
                     <Text style={styles.companyMsgMeta}>
-                      From {m.sender.name ?? 'Unknown'} ·{' '}
-                      {new Date(m.createdAt).toLocaleTimeString('en-GB', {
+                      {t('home.companyMsgFrom', { name: m.sender.name ?? t('home.unknown') })} ·{' '}
+                      {new Date(m.createdAt).toLocaleTimeString(locale, {
                         hour: 'numeric',
                         minute: '2-digit',
                       })}
@@ -1298,27 +1313,37 @@ export default function Home() {
             activeOpacity={0.85}
           >
             <Text style={styles.buyIcon}>💳</Text>
-            <Text style={styles.buyLabel}>{credits} credits remaining</Text>
-            <Text style={styles.creditsHint}>Tap to buy more</Text>
+            <Text style={styles.buyLabel}>
+              {credits === 1
+                ? t('home.creditsRemainingOne', { count: credits })
+                : t('home.creditsRemainingOther', { count: credits })}
+            </Text>
+            <Text style={styles.creditsHint}>{t('home.tapToBuyMore')}</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.buyCreditsCard}>
             <Text style={styles.buyIcon}>💳</Text>
-            <Text style={styles.buyLabel}>{credits} credits remaining</Text>
-            <Text style={styles.creditsHint}>Manage on speedi.co.uk</Text>
+            <Text style={styles.buyLabel}>
+              {credits === 1
+                ? t('home.creditsRemainingOne', { count: credits })
+                : t('home.creditsRemainingOther', { count: credits })}
+            </Text>
+            <Text style={styles.creditsHint}>{t('home.manageOnWeb')}</Text>
           </View>
         )}
 
         <View style={styles.quotesCard}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.quotesTitle}>Available for Quotes</Text>
+            <Text style={styles.quotesTitle}>{t('home.quotesTitle')}</Text>
             <Text style={styles.quotesSubtitle}>
               {availableForQuotes && quotesUntil
-                ? `On the live quotes map until ${new Date(quotesUntil).toLocaleTimeString(
-                    'en-GB',
-                    { hour: 'numeric', minute: '2-digit' },
-                  )}`
-                : 'Show up on the live map for customers looking for quotes (2h)'}
+                ? t('home.quotesUntil', {
+                    time: new Date(quotesUntil).toLocaleTimeString(locale, {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }),
+                  })
+                : t('home.quotesPitch')}
             </Text>
           </View>
           <Switch
@@ -1344,7 +1369,7 @@ export default function Home() {
                     <Image
                       source={require('../../assets/speedi-approved-check.png')}
                       style={styles.approvedCheck}
-                      accessibilityLabel="Speedi Approved verified"
+                      accessibilityLabel={t('home.approvedCheckA11y')}
                     />
                   )}
                   <Text style={styles.approvedTitle}>{display.title}</Text>
@@ -1362,8 +1387,8 @@ export default function Home() {
           >
             <Animated.View style={[styles.yoriDot, { opacity: pulse }]} />
             <Text style={styles.yoriNotifText}>
-              <Text style={styles.yoriNotifStrong}>Yori</Text> — {waitingCount} waiting
-              nearby
+              <Text style={styles.yoriNotifStrong}>Yori</Text>{' '}
+              {t('home.yoriWaitingNearby', { count: waitingCount })}
             </Text>
             <Text style={styles.yoriChevron}>›</Text>
           </TouchableOpacity>
@@ -1378,11 +1403,17 @@ export default function Home() {
             <Text style={styles.calendarIcon}>📅</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.calendarTitle}>Today's Schedule</Text>
+            <Text style={styles.calendarTitle}>{t('home.todaysSchedule')}</Text>
             <Text style={styles.calendarSubtitle}>
               {nextEvent
-                ? `Next: ${new Date(nextEvent.time).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })} · ${nextEvent.title}`
-                : 'Tap to view your day'}
+                ? t('home.nextEvent', {
+                    time: new Date(nextEvent.time).toLocaleTimeString(locale, {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }),
+                    title: nextEvent.title,
+                  })
+                : t('home.tapToViewDay')}
             </Text>
           </View>
           <Text style={styles.calendarChevron}>›</Text>

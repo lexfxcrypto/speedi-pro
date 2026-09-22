@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
+import { getLang, t, useT, type TKey } from '../../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 
@@ -30,7 +31,15 @@ type CalData = {
   weekEvents: CalEvent[];
 };
 
-const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DAY_LETTERS: TKey[] = [
+  'calendar.dayLetterMon',
+  'calendar.dayLetterTue',
+  'calendar.dayLetterWed',
+  'calendar.dayLetterThu',
+  'calendar.dayLetterFri',
+  'calendar.dayLetterSat',
+  'calendar.dayLetterSun',
+];
 
 function getWeek(today: Date): Date[] {
   const dow = today.getDay();
@@ -57,10 +66,14 @@ function formatEventTime(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleTimeString(getLang() === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 export default function Calendar() {
+  const { lang } = useT();
   const [calData, setCalData] = useState<CalData>({
     connected: false,
     todayEvents: [],
@@ -120,7 +133,7 @@ export default function Calendar() {
 
   const today = new Date();
   const week = getWeek(today);
-  const todayStr = today.toLocaleDateString('en-GB', {
+  const todayStr = today.toLocaleDateString(lang === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -146,7 +159,7 @@ export default function Calendar() {
             const hasEvents = (eventsByDay[i]?.length ?? 0) > 0;
             return (
               <View key={d.toISOString()} style={styles.dayCol}>
-                <Text style={styles.dayLetter}>{DAY_LETTERS[i]}</Text>
+                <Text style={styles.dayLetter}>{t(DAY_LETTERS[i])}</Text>
                 <View style={[styles.dateWrap, isToday && styles.dateWrapToday]}>
                   <Text style={styles.dateNum}>{d.getDate()}</Text>
                 </View>
@@ -163,11 +176,8 @@ export default function Calendar() {
         {!calData.connected ? (
           <View style={styles.connectCard}>
             <Text style={styles.connectIcon}>📅</Text>
-            <Text style={styles.connectTitle}>Connect Google Calendar</Text>
-            <Text style={styles.connectSubtitle}>
-              Sync your availability automatically. Speedi will auto-go red when you're on a
-              job and back to green when you're free.
-            </Text>
+            <Text style={styles.connectTitle}>{t('calendar.connectGoogle')}</Text>
+            <Text style={styles.connectSubtitle}>{t('calendar.connectSubtitle')}</Text>
             <TouchableOpacity
               style={styles.connectBtn}
               onPress={handleConnect}
@@ -177,7 +187,7 @@ export default function Calendar() {
               {connecting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.connectBtnText}>Connect Google Calendar</Text>
+                <Text style={styles.connectBtnText}>{t('calendar.connectGoogle')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -188,18 +198,20 @@ export default function Calendar() {
               <View style={styles.gcalRow}>
                 <Text style={styles.gcalTitle}>Google Calendar</Text>
                 <View style={styles.livePill}>
-                  <Text style={styles.livePillText}>✓ Live</Text>
+                  <Text style={styles.livePillText}>{t('calendar.livePill')}</Text>
                 </View>
               </View>
-              <Text style={styles.gcalSubtitle}>Syncing availability automatically</Text>
+              <Text style={styles.gcalSubtitle}>{t('calendar.syncing')}</Text>
             </View>
           </View>
         )}
 
-        <Text style={styles.todayLabel}>TODAY — {todayStr.toUpperCase()}</Text>
+        <Text style={styles.todayLabel}>
+          {t('calendar.todayLabel', { date: todayStr.toUpperCase() })}
+        </Text>
 
         {calData.connected && calData.todayEvents.length === 0 ? (
-          <Text style={styles.emptyText}>No events scheduled today</Text>
+          <Text style={styles.emptyText}>{t('calendar.noEventsToday')}</Text>
         ) : (
           calData.todayEvents.map((evt) => (
             <View key={evt.id} style={styles.slotCard}>
@@ -207,10 +219,12 @@ export default function Calendar() {
               <View style={styles.slotBody}>
                 <View style={styles.slotMainRow}>
                   <Text style={styles.slotTime}>
-                    {evt.allDay ? 'All day' : formatEventTime(evt.time)}
+                    {evt.allDay ? t('calendar.allDay') : formatEventTime(evt.time)}
                   </Text>
                   <View style={[styles.slotPill, { backgroundColor: '#E64A1922' }]}>
-                    <Text style={[styles.slotPillText, { color: '#E64A19' }]}>📅 Event</Text>
+                    <Text style={[styles.slotPillText, { color: '#E64A19' }]}>
+                      {t('calendar.eventPill')}
+                    </Text>
                   </View>
                 </View>
                 <Text style={styles.slotTitle}>{evt.title}</Text>
@@ -219,7 +233,7 @@ export default function Calendar() {
                 ) : null}
                 {!evt.allDay && evt.endTime ? (
                   <Text style={styles.slotSubtitle}>
-                    Until {formatEventTime(evt.endTime)}
+                    {t('calendar.until', { time: formatEventTime(evt.endTime) })}
                   </Text>
                 ) : null}
               </View>

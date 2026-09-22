@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
 import { SHOW_IAP_CREDITS } from '../lib/featureFlags';
+import { t, useT } from '../lib/i18n';
 import { normalisePhone, whatsappUrl } from '../lib/phone';
 import CreditsPurchaseSheet from '../components/CreditsPurchaseSheet';
 
@@ -34,16 +35,17 @@ type Quote = {
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return t('quotes.timeJustNow');
+  if (mins < 60) return t('quotes.timeMinutesAgo', { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hr ago`;
+  if (hours < 24) return t('quotes.timeHoursAgo', { count: hours });
   const days = Math.floor(hours / 24);
-  return days === 1 ? 'Yesterday' : `${days}d ago`;
+  return days === 1 ? t('quotes.timeYesterday') : t('quotes.timeDaysAgo', { count: days });
 }
 
 export default function Quotes() {
   const router = useRouter();
+  const { t } = useT();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export default function Quotes() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         await load();
 
-        const customerName = data.customer?.name ?? 'Customer';
+        const customerName = data.customer?.name ?? t('quotes.customerFallback');
         const phone: string | null = data.customer?.phone ?? null;
         const email: string | null = data.customer?.email ?? null;
 
@@ -94,62 +96,67 @@ export default function Quotes() {
             onPress: () => Linking.openURL(whatsappUrl(phone)),
           });
           actions.push({
-            text: '📞 Call',
+            text: t('quotes.call'),
             onPress: () => Linking.openURL(`tel:${normalisePhone(phone)}`),
           });
           actions.push({
-            text: '💬 SMS',
+            text: t('quotes.sms'),
             onPress: () => Linking.openURL(`sms:${normalisePhone(phone)}`),
           });
         }
         if (email) {
           actions.push({
-            text: '✉️ Email',
+            text: t('quotes.email'),
             onPress: () => Linking.openURL(`mailto:${email}`),
           });
         }
-        actions.push({ text: 'OK', style: 'cancel' });
+        actions.push({ text: t('common.ok'), style: 'cancel' });
 
         Alert.alert(
-          '✅ Quote sent — 1 credit spent',
-          `Your message is now in ${customerName}'s inbox and will show in your Messages tab.\n\n` +
-            `Phone: ${phone || 'Not provided'}\n` +
-            `Email: ${email || 'Not provided'}\n\n` +
-            `${data.remainingCredits} credits remaining.`,
+          t('quotes.sentTitle'),
+          `${t('quotes.sentBody', { name: customerName })}\n\n` +
+            `${t('quotes.contactPhone', { phone: phone || t('quotes.notProvided') })}\n` +
+            `${t('quotes.contactEmail', { email: email || t('quotes.notProvided') })}\n\n` +
+            t(
+              data.remainingCredits === 1
+                ? 'quotes.creditsRemainingOne'
+                : 'quotes.creditsRemainingOther',
+              { count: data.remainingCredits },
+            ),
           actions,
         );
       } else if (data.code === 'NO_CREDITS') {
         if (SHOW_IAP_CREDITS) {
           Alert.alert(
-            'Not enough credits',
-            'You need at least 1 credit to respond to a quote.',
+            t('quotes.notEnoughCreditsTitle'),
+            t('quotes.notEnoughCreditsBody'),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Buy credits', onPress: () => setShowPurchaseSheet(true) },
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('quotes.buyCredits'), onPress: () => setShowPurchaseSheet(true) },
             ],
           );
         } else {
           Alert.alert(
-            'Not enough credits',
-            'You need at least 1 credit to respond to a quote. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
-            [{ text: 'OK' }],
+            t('quotes.notEnoughCreditsTitle'),
+            t('quotes.notEnoughCreditsWebBody'),
+            [{ text: t('common.ok') }],
           );
         }
       } else if (data.code === 'CLOSED') {
-        Alert.alert('Quote closed', 'This quote is no longer accepting responses.', [
-          { text: 'OK' },
+        Alert.alert(t('quotes.closedTitle'), t('quotes.closedBody'), [
+          { text: t('common.ok') },
         ]);
         load();
       } else if (data.code === 'ALREADY_RESPONDED') {
-        Alert.alert('Already responded', 'You have already sent a quote for this request.', [
-          { text: 'OK' },
+        Alert.alert(t('quotes.alreadyRespondedTitle'), t('quotes.alreadyRespondedBody'), [
+          { text: t('common.ok') },
         ]);
         load();
       } else {
-        Alert.alert('Error', data.error || 'Could not respond. Try again.');
+        Alert.alert(t('quotes.errorTitle'), data.error || t('quotes.respondFailed'));
       }
     } catch {
-      Alert.alert('Error', 'Connection failed. Try again.');
+      Alert.alert(t('quotes.errorTitle'), t('quotes.connectionFailed'));
     } finally {
       setResponding(null);
     }
@@ -157,12 +164,12 @@ export default function Quotes() {
 
   const confirmRespond = (quote: Quote) => {
     Alert.alert(
-      `Respond to ${quote.jobType}?`,
-      `1 credit will be spent. You'll unlock ${quote.customerName ?? 'the customer'}'s contact details and start a message thread.`,
+      t('quotes.confirmTitle', { jobType: quote.jobType }),
+      t('quotes.confirmBody', { name: quote.customerName ?? t('quotes.theCustomer') }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Respond · 1 credit',
+          text: t('quotes.respondButton'),
           onPress: () => respondToQuote(quote),
         },
       ],
@@ -173,9 +180,9 @@ export default function Quotes() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Quote Requests</Text>
+        <Text style={styles.title}>{t('quotes.title')}</Text>
         <View style={styles.backBtn} />
       </View>
 
@@ -187,9 +194,9 @@ export default function Quotes() {
         <ScrollView contentContainerStyle={styles.container}>
           {quotes.length === 0 ? (
             <View style={styles.emptyBlock}>
-              <Text style={styles.emptyText}>No new quote requests</Text>
+              <Text style={styles.emptyText}>{t('quotes.empty')}</Text>
               <Text style={styles.emptySub}>
-                New quotes will appear here when customers request one in your area
+                {t('quotes.emptyHint')}
               </Text>
             </View>
           ) : (
@@ -198,7 +205,7 @@ export default function Quotes() {
               return (
                 <View key={q.id} style={styles.card}>
                   <View style={styles.rowBetween}>
-                    <Text style={styles.cardTitle}>{q.jobType || 'Quote request'}</Text>
+                    <Text style={styles.cardTitle}>{q.jobType || t('quotes.quoteRequestFallback')}</Text>
                     <Text style={styles.cardTime}>{timeAgo(q.createdAt)}</Text>
                   </View>
                   {q.customerName ? (
@@ -221,13 +228,13 @@ export default function Quotes() {
                     {q.responded ? (
                       <View style={[styles.pill, { backgroundColor: '#00C67A22' }]}>
                         <Text style={[styles.pillText, { color: '#00C67A' }]}>
-                          ✓ Responded
+                          {t('quotes.responded')}
                         </Text>
                       </View>
                     ) : null}
                     {q.status === 'closed' && !q.responded ? (
                       <View style={[styles.pill, { backgroundColor: '#1C1C1C' }]}>
-                        <Text style={[styles.pillText, { color: '#9CA3AF' }]}>Closed</Text>
+                        <Text style={[styles.pillText, { color: '#9CA3AF' }]}>{t('quotes.closed')}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -241,7 +248,7 @@ export default function Quotes() {
                       {isResponding ? (
                         <ActivityIndicator color="#FFFFFF" />
                       ) : (
-                        <Text style={styles.respondText}>Respond · 1 credit</Text>
+                        <Text style={styles.respondText}>{t('quotes.respondButton')}</Text>
                       )}
                     </TouchableOpacity>
                   ) : null}

@@ -14,6 +14,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as SecureStore from 'expo-secure-store';
 import QRCode from 'react-native-qrcode-svg';
 import { fetchWithAuth } from '../../lib/auth';
+import { t, useT } from '../../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 
@@ -61,18 +62,25 @@ function daysAgo(iso: string): string {
   const days = Math.floor(diffMs / 86400000);
   if (days < 1) {
     const hours = Math.floor(diffMs / 3600000);
-    if (hours < 1) return 'just now';
-    return `${hours} hr ago`;
+    if (hours < 1) return t('reviews.justNow');
+    return t('reviews.hoursAgo', { count: hours });
   }
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
+  if (days === 1) return t('reviews.yesterday');
+  if (days < 7) return t('reviews.daysAgo', { count: days });
   const weeks = Math.floor(days / 7);
-  if (weeks < 5) return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+  if (weeks < 5) {
+    return weeks === 1
+      ? t('reviews.weeksAgoOne')
+      : t('reviews.weeksAgoOther', { count: weeks });
+  }
   const months = Math.floor(days / 30);
-  return months === 1 ? '1 month ago' : `${months} months ago`;
+  return months === 1
+    ? t('reviews.monthsAgoOne')
+    : t('reviews.monthsAgoOther', { count: months });
 }
 
 export default function Reviews() {
+  const { t } = useT();
   const [reviewData, setReviewData] = useState<ReviewData>({
     averageRating: 0,
     totalCount: 0,
@@ -152,21 +160,22 @@ export default function Reviews() {
           <Text style={styles.heroNumber}>{reviewData.averageRating.toFixed(1)}</Text>
           <Text style={styles.heroStars}>{renderStars(reviewData.averageRating)}</Text>
           <Text style={styles.heroSubtitle}>
-            Based on {reviewData.totalCount}{' '}
-            {reviewData.totalCount === 1 ? 'review' : 'reviews'}
+            {reviewData.totalCount === 1
+              ? t('reviews.basedOnOne', { count: reviewData.totalCount })
+              : t('reviews.basedOnOther', { count: reviewData.totalCount })}
           </Text>
         </View>
 
         {!hasReviews ? (
           <View style={styles.emptyBlock}>
-            <Text style={styles.emptyText}>No reviews yet</Text>
-            <Text style={styles.emptySub}>Complete jobs to start receiving reviews</Text>
+            <Text style={styles.emptyText}>{t('reviews.noReviews')}</Text>
+            <Text style={styles.emptySub}>{t('reviews.noReviewsSub')}</Text>
           </View>
         ) : (
           reviewData.reviews.map((rev) => (
             <View key={rev.id} style={styles.reviewCard}>
               <View style={styles.reviewTop}>
-                <Text style={styles.reviewName}>{rev.reviewerName || 'Anonymous'}</Text>
+                <Text style={styles.reviewName}>{rev.reviewerName || t('reviews.anonymous')}</Text>
                 <Text style={styles.reviewStars}>{renderStars(rev.rating)}</Text>
               </View>
               <Text style={styles.reviewDate}>{daysAgo(rev.createdAt)}</Text>
@@ -197,10 +206,8 @@ export default function Reviews() {
               />
             </View>
             <View style={styles.qrBody}>
-              <Text style={styles.qrTitle}>Get more reviews</Text>
-              <Text style={styles.qrSubtitle}>
-                Show this code at the end of a job, or send them the link
-              </Text>
+              <Text style={styles.qrTitle}>{t('reviews.getMoreTitle')}</Text>
+              <Text style={styles.qrSubtitle}>{t('reviews.getMoreSubtitle')}</Text>
               <View style={styles.qrButtons}>
                 <TouchableOpacity
                   style={styles.qrPrimary}
@@ -213,23 +220,23 @@ export default function Reviews() {
                      */
                     try {
                       await Share.share({
-                        message: `Thanks for the work! If you've got a second, a quick review really helps: ${reviewUrl(providerId)}`,
+                        message: t('reviews.shareMessage', { url: reviewUrl(providerId) }),
                       });
                     } catch (e) {
                       console.log('Share failed:', e);
                     }
                   }}
                 >
-                  <Text style={styles.qrPrimaryText}>Send to customer</Text>
+                  <Text style={styles.qrPrimaryText}>{t('reviews.sendToCustomer')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.qrSecondary}
                   onPress={async () => {
                     await Clipboard.setStringAsync(reviewUrl(providerId));
-                    Alert.alert('Copied', 'Your review link is on the clipboard.');
+                    Alert.alert(t('reviews.copiedTitle'), t('reviews.copiedBody'));
                   }}
                 >
-                  <Text style={styles.qrSecondaryText}>Copy link</Text>
+                  <Text style={styles.qrSecondaryText}>{t('reviews.copyLink')}</Text>
                 </TouchableOpacity>
               </View>
             </View>

@@ -3,10 +3,12 @@ import { Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
+import { useT } from '../../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 
 export default function TabsLayout() {
+  const { t } = useT();
   const [totalUnread, setTotalUnread] = useState(0);
   const [waitingCount, setWaitingCount] = useState(0);
 
@@ -70,14 +72,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t('tabs.home'),
           tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="waiting"
         options={{
-          title: 'Waiting',
+          title: t('tabs.waiting'),
           tabBarBadge: waitingCount > 0 ? waitingCount : undefined,
           tabBarIcon: ({ color, size }) => <Ionicons name="flash" color={color} size={size} />,
         }}
@@ -86,7 +88,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
+          title: t('tabs.messages'),
           tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubble" color={color} size={size} />
@@ -96,21 +98,21 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: t('tabs.profile'),
           tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="reviews"
         options={{
-          title: 'Reviews',
+          title: t('tabs.reviews'),
           tabBarIcon: ({ color, size }) => <Ionicons name="star" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="rewards"
         options={{
-          title: 'Rewards',
+          title: t('tabs.rewards'),
           tabBarIcon: ({ color, size }) => <Ionicons name="gift" color={color} size={size} />,
         }}
       />

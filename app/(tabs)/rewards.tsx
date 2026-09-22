@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import { getLang, t, useT } from '../../lib/i18n';
 
 // Lazy-mount the IAP sheet. expo-iap's native module pulls in StoreKit
 // observers on first JS-side require, which on certain iOS builds
@@ -43,32 +44,36 @@ type RewardsData = {
 function formatRelative(iso: string): string {
   const now = new Date();
   const d = new Date(iso);
+  const locale = getLang() === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB';
   const diffMs = now.getTime() - d.getTime();
   const minute = 60_000;
   const hour = 60 * minute;
   const day = 24 * hour;
   const week = 7 * day;
 
-  if (diffMs < minute) return 'Just now';
+  if (diffMs < minute) return t('rewards.justNow');
   if (diffMs < hour) {
     const m = Math.floor(diffMs / minute);
-    return `${m}m ago`;
+    return t('rewards.minutesAgo', { count: m });
   }
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if (d >= today) {
-    return `Today ${d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })}`;
+    return t('rewards.todayAt', {
+      time: d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' }),
+    });
   }
   const yesterday = new Date(today.getTime() - day);
-  if (d >= yesterday) return 'Yesterday';
+  if (d >= yesterday) return t('rewards.yesterday');
   if (diffMs < week) {
     const days = Math.floor(diffMs / day);
-    return `${days} days ago`;
+    return t('rewards.daysAgo', { count: days });
   }
-  if (diffMs < 2 * week) return '1 week ago';
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  if (diffMs < 2 * week) return t('rewards.oneWeekAgo');
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 }
 
 export default function Rewards() {
+  const { t } = useT();
   const [data, setData] = useState<RewardsData | null>(null);
   const [showPurchaseSheet, setShowPurchaseSheet] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -132,22 +137,19 @@ export default function Rewards() {
           activeOpacity={0.85}
         >
           <Text style={styles.affiliatePillText} numberOfLines={1}>
-            Join our Affiliate Scheme — earn 15% cash back
+            {t('rewards.affiliatePill')}
           </Text>
           <Text style={styles.affiliatePillChevron}>›</Text>
         </TouchableOpacity>
 
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>Refer a pro</Text>
-          <Text style={styles.heroSubtitle}>
-            Share your code. When they sign up you both earn — you get 10% of every credit pack
-            they buy for 6 months.
-          </Text>
+          <Text style={styles.heroTitle}>{t('rewards.heroTitle')}</Text>
+          <Text style={styles.heroSubtitle}>{t('rewards.heroSubtitle')}</Text>
 
           <View style={styles.codeBox}>
             <Text style={styles.codeText}>{referralCode || '—'}</Text>
             <TouchableOpacity onPress={handleCopyCode} disabled={!referralCode}>
-              <Text style={styles.copyText}>📋 Copy</Text>
+              <Text style={styles.copyText}>{t('rewards.copy')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -158,27 +160,25 @@ export default function Rewards() {
             onPress={handleShare}
             disabled={!referralCode}
           >
-            <Text style={styles.shareText}>📤 Share Referral Link</Text>
+            <Text style={styles.shareText}>{t('rewards.shareLink')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{data?.totalEarned ?? 0}</Text>
-            <Text style={styles.statLabel}>Credits Earned</Text>
+            <Text style={styles.statLabel}>{t('rewards.creditsEarned')}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{data?.referralCount ?? 0}</Text>
-            <Text style={styles.statLabel}>Referrals</Text>
+            <Text style={styles.statLabel}>{t('rewards.referrals')}</Text>
           </View>
         </View>
 
         <View style={styles.historyCard}>
-          <Text style={styles.historyTitle}>Credit History</Text>
+          <Text style={styles.historyTitle}>{t('rewards.creditHistory')}</Text>
           {(data?.history.length ?? 0) === 0 ? (
-            <Text style={styles.historyEmpty}>
-              No credit activity yet. Accept a job or buy a pack to get started.
-            </Text>
+            <Text style={styles.historyEmpty}>{t('rewards.historyEmpty')}</Text>
           ) : (
             data!.history.map((item, i) => (
               <View
@@ -213,15 +213,12 @@ export default function Rewards() {
             onPress={() => setShowPurchaseSheet(true)}
             activeOpacity={0.85}
           >
-            <Text style={styles.buyBtnText}>💳 Buy credits</Text>
+            <Text style={styles.buyBtnText}>{t('rewards.buyCredits')}</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.creditsInfo}>
-            <Text style={styles.creditsInfoTitle}>Need more credits?</Text>
-            <Text style={styles.creditsInfoBody}>
-              Credit packs are managed on speedi.co.uk — sign in to your account from any
-              web browser to top up.
-            </Text>
+            <Text style={styles.creditsInfoTitle}>{t('rewards.needMoreCredits')}</Text>
+            <Text style={styles.creditsInfoBody}>{t('rewards.creditsInfoBody')}</Text>
           </View>
         )}
       </ScrollView>

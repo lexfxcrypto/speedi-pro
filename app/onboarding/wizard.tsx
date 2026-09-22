@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { fetchWithAuth, getToken } from '../../lib/auth';
 import { SHOW_COMPANIES } from '../../lib/featureFlags';
+import { useT, type TKey, categoryLabel } from '../../lib/i18n';
 import { SERVICE_CATEGORIES, SERVICE_CATEGORIES_LIST } from '../../lib/services';
 import { matchesServiceQuery } from '../../lib/serviceAliases';
 import { SPORTS_CATEGORIES } from '../../lib/sports';
@@ -83,34 +84,40 @@ type ProviderTile = ProviderType | 'trade_concierge';
 
 const PROVIDER_OPTIONS: Array<{
   key: ProviderTile;
-  title: string;
-  subtext: string;
+  title: TKey;
+  subtext: TKey;
   color: string;
 }> = [
-  { key: 'trade', title: 'Trade', subtext: 'Plumber, electrician, builder…', color: THEME_TRADE },
+  { key: 'trade', title: 'onboarding.providerTrade', subtext: 'onboarding.providerTradeSubtext', color: THEME_TRADE },
   {
     key: 'trade_concierge',
-    title: 'Trade Concierge',
-    subtext: 'Local generalist — covers many trades',
+    title: 'onboarding.providerConcierge',
+    subtext: 'onboarding.providerConciergeSubtext',
     color: THEME_TRADE,
   },
-  { key: 'service', title: 'Service', subtext: 'Beauty, fitness, tutoring…', color: THEME_SERVICE },
-  { key: 'sports', title: 'Sports', subtext: 'Venues, coaching, bookings…', color: THEME_SPORTS },
+  { key: 'service', title: 'onboarding.providerService', subtext: 'onboarding.providerServiceSubtext', color: THEME_SERVICE },
+  { key: 'sports', title: 'onboarding.providerSports', subtext: 'onboarding.providerSportsSubtext', color: THEME_SPORTS },
   {
     key: 'merchant',
-    title: 'Merchant',
-    subtext: 'Fixed premises — plumbers merchant, wholesaler, yard',
+    title: 'onboarding.providerMerchant',
+    subtext: 'onboarding.providerMerchantSubtext',
     color: THEME_TRADE,
   },
 ];
 
-const PREMISES_OPTIONS: Array<{ key: PremisesMode; title: string; subtext: string }> = [
-  { key: 'mobile', title: 'Mobile', subtext: 'I travel to customers' },
-  { key: 'fixed', title: 'Fixed', subtext: 'Customers come to me' },
-  { key: 'both', title: 'Both', subtext: 'Mix of both' },
+const PREMISES_OPTIONS: Array<{ key: PremisesMode; title: TKey; subtext: TKey }> = [
+  { key: 'mobile', title: 'onboarding.premisesMobile', subtext: 'onboarding.premisesMobileSubtext' },
+  { key: 'fixed', title: 'onboarding.premisesFixed', subtext: 'onboarding.premisesFixedSubtext' },
+  { key: 'both', title: 'onboarding.premisesBoth', subtext: 'onboarding.premisesBothSubtext' },
 ];
 
-const YEARS_OPTIONS = ['Under 1 year', '1-3 years', '3-10 years', '10+ years'];
+// The value is what the server stores; only the label is translated.
+const YEARS_OPTIONS: Array<{ value: string; label: TKey }> = [
+  { value: 'Under 1 year', label: 'onboarding.yearsUnder1' },
+  { value: '1-3 years', label: 'onboarding.years1to3' },
+  { value: '3-10 years', label: 'onboarding.years3to10' },
+  { value: '10+ years', label: 'onboarding.years10plus' },
+];
 
 /**
  * How far they will travel.
@@ -124,14 +131,14 @@ const YEARS_OPTIONS = ['Under 1 year', '1-3 years', '3-10 years', '10+ years'];
  * of them and the jobs are bigger. The old ceiling was set for
  * call-out trades and applied to everyone.
  */
-const RADIUS_OPTIONS: Array<{ display: string; value: string }> = [
-  { display: '1mi', value: '1' },
-  { display: '3mi', value: '3' },
-  { display: '5mi', value: '5' },
-  { display: '10mi', value: '10' },
-  { display: '20mi', value: '20' },
-  { display: '30mi', value: '30' },
-  { display: '40mi', value: '40' },
+const RADIUS_OPTIONS: Array<{ value: string }> = [
+  { value: '1' },
+  { value: '3' },
+  { value: '5' },
+  { value: '10' },
+  { value: '20' },
+  { value: '30' },
+  { value: '40' },
 ];
 
 type CategoryOption = { name: string; emoji?: string };
@@ -162,6 +169,7 @@ function getJobsForCategory(pt: ProviderType | null, cat: string | null): string
 
 export default function Wizard() {
   const router = useRouter();
+  const { t } = useT();
   const [step, setStep] = useState(SHOW_COMPANIES ? 1 : 2);
   const [signupIntent, setSignupIntent] = useState<SignupIntent | null>(
     SHOW_COMPANIES ? null : 'sole_trader',
@@ -321,8 +329,8 @@ export default function Wizard() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert(
-        'Permission needed',
-        'Please allow photo access to upload a profile photo.'
+        t('onboarding.photoPermissionTitle'),
+        t('onboarding.photoPermissionBody')
       );
       return;
     }
@@ -356,15 +364,15 @@ export default function Wizard() {
         body: formData,
       });
 
-      if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+      if (!response.ok) throw new Error(t('onboarding.uploadFailedStatus', { status: response.status }));
 
       const { url } = await response.json();
       setPhotoUrl(url);
     } catch (err) {
       console.error('[photo upload]', err);
       Alert.alert(
-        'Upload failed',
-        err instanceof Error ? err.message : 'Please try again'
+        t('onboarding.uploadFailedTitle'),
+        err instanceof Error ? err.message : t('onboarding.pleaseTryAgain')
       );
     } finally {
       setPhotoUploading(false);
@@ -446,7 +454,7 @@ export default function Wizard() {
 
       if (!response.ok) {
         const body = await response.text();
-        let errMsg = 'Failed to complete setup';
+        let errMsg = t('onboarding.setupFailed');
         try {
           const parsed = JSON.parse(body);
           errMsg = parsed.error || parsed.message || errMsg;
@@ -459,7 +467,7 @@ export default function Wizard() {
       router.replace('/onboarding/notifications');
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : 'Failed to complete setup'
+        err instanceof Error ? err.message : t('onboarding.setupFailed')
       );
       setSubmitting(false);
     }
@@ -491,7 +499,7 @@ export default function Wizard() {
             disabled={submitting}
           >
             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-            <Text style={styles.backText}>Back</Text>
+            <Text style={styles.backText}>{t('common.back')}</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.backPlaceholder} />
@@ -503,7 +511,7 @@ export default function Wizard() {
         >
           {step === 1 && (
             <View>
-              <Text style={styles.heading}>I&apos;m joining as…</Text>
+              <Text style={styles.heading}>{t('onboarding.joiningAs')}</Text>
 
               <TouchableOpacity
                 style={[
@@ -519,9 +527,9 @@ export default function Wizard() {
                     signupIntent === 'sole_trader' && { color: theme },
                   ]}
                 >
-                  Sole trader
+                  {t('onboarding.soleTrader')}
                 </Text>
-                <Text style={styles.tileSubtext}>Self-employed, just me</Text>
+                <Text style={styles.tileSubtext}>{t('onboarding.soleTraderSubtext')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -538,16 +546,16 @@ export default function Wizard() {
                     signupIntent === 'company_owner' && { color: theme },
                   ]}
                 >
-                  Company owner
+                  {t('onboarding.companyOwner')}
                 </Text>
-                <Text style={styles.tileSubtext}>I employ workers</Text>
+                <Text style={styles.tileSubtext}>{t('onboarding.companyOwnerSubtext')}</Text>
               </TouchableOpacity>
             </View>
           )}
 
           {step === 2 && (
             <View>
-              <Text style={styles.heading}>What are you?</Text>
+              <Text style={styles.heading}>{t('onboarding.whatAreYou')}</Text>
               {PROVIDER_OPTIONS.map((opt) => {
                 // The two trade tiles share providerType='trade'; use the
                 // concierge flag to disambiguate which tile is selected.
@@ -568,9 +576,9 @@ export default function Wizard() {
                     <Text
                       style={[styles.tileTitle, selected && { color: opt.color }]}
                     >
-                      {opt.title}
+                      {t(opt.title)}
                     </Text>
-                    <Text style={styles.tileSubtext}>{opt.subtext}</Text>
+                    <Text style={styles.tileSubtext}>{t(opt.subtext)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -579,7 +587,7 @@ export default function Wizard() {
 
           {step === 3 && (
             <View>
-              <Text style={styles.heading}>How do you work?</Text>
+              <Text style={styles.heading}>{t('onboarding.howDoYouWork')}</Text>
               {PREMISES_OPTIONS.map((opt) => {
                 const selected = premisesMode === opt.key;
                 return (
@@ -595,9 +603,9 @@ export default function Wizard() {
                     <Text
                       style={[styles.tileTitle, selected && { color: theme }]}
                     >
-                      {opt.title}
+                      {t(opt.title)}
                     </Text>
-                    <Text style={styles.tileSubtext}>{opt.subtext}</Text>
+                    <Text style={styles.tileSubtext}>{t(opt.subtext)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -606,7 +614,7 @@ export default function Wizard() {
 
           {step === 4 && (
             <View>
-              <Text style={styles.heading}>What&apos;s your category?</Text>
+              <Text style={styles.heading}>{t('onboarding.whatsYourCategory')}</Text>
               <View style={styles.pillWrap}>
                 {categoryOptions.map((opt) => {
                   const isOther = opt.name === 'Other';
@@ -624,7 +632,11 @@ export default function Wizard() {
                       <Text
                         style={[styles.pillText, selected && { color: theme }]}
                       >
-                        {opt.emoji ? `${opt.emoji} ${opt.name}` : opt.name}
+                        {isOther
+                          ? t('onboarding.otherCategory')
+                          : opt.emoji
+                            ? `${opt.emoji} ${categoryLabel(opt.name)}`
+                            : categoryLabel(opt.name)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -633,7 +645,7 @@ export default function Wizard() {
               {showOtherInput && (
                 <TextInput
                   style={styles.otherInput}
-                  placeholder="Describe your category"
+                  placeholder={t('onboarding.describeCategory')}
                   placeholderTextColor="#6B7280"
                   value={otherText}
                   onChangeText={setOtherText}
@@ -646,20 +658,16 @@ export default function Wizard() {
 
           {step === 5 && providerType === 'merchant' && (
             <View>
-              <Text style={styles.heading}>Tell us about your business</Text>
-              <Text style={styles.step5Subtext}>
-                Merchants appear on the customer map with your address,
-                phone, opening hours and description all publicly
-                visible — no need for customers to message first.
-              </Text>
+              <Text style={styles.heading}>{t('onboarding.merchantHeading')}</Text>
+              <Text style={styles.step5Subtext}>{t('onboarding.merchantIntro')}</Text>
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>
-                  Building / unit / number (optional)
+                  {t('onboarding.merchantBuildingLabel')}
                 </Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Unit 4, Trade Park"
+                  placeholder={t('onboarding.merchantBuildingPlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantBuilding}
                   onChangeText={setMerchantBuilding}
@@ -668,10 +676,10 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Street</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.merchantStreetLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Kent Street"
+                  placeholder={t('onboarding.merchantStreetPlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantStreet}
                   onChangeText={setMerchantStreet}
@@ -680,10 +688,10 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Town / city</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.merchantTownLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Blackburn"
+                  placeholder={t('onboarding.merchantTownPlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantTown}
                   onChangeText={setMerchantTown}
@@ -692,10 +700,10 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>County (optional)</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.merchantCountyLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Lancashire"
+                  placeholder={t('onboarding.merchantCountyPlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantCounty}
                   onChangeText={setMerchantCounty}
@@ -704,15 +712,14 @@ export default function Wizard() {
               </View>
 
               <Text style={[styles.step5Subtext, { marginTop: 4 }]}>
-                Postcode is captured on the next step and used to place
-                your pin on the map.
+                {t('onboarding.merchantPostcodeNote')}
               </Text>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Counter phone</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.merchantPhoneLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="01772 123456"
+                  placeholder={t('onboarding.merchantPhonePlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantPhone}
                   onChangeText={setMerchantPhone}
@@ -721,10 +728,10 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Business email (optional)</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.merchantEmailLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="orders@yourbusiness.co.uk"
+                  placeholder={t('onboarding.merchantEmailPlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantEmail}
                   onChangeText={setMerchantEmail}
@@ -734,10 +741,10 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Website (optional)</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.merchantWebsiteLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="www.yourbusiness.co.uk"
+                  placeholder={t('onboarding.merchantWebsitePlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantWebsite}
                   onChangeText={setMerchantWebsite}
@@ -746,10 +753,10 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Opening hours</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.merchantHoursLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Mon–Fri 7:30–17:00, Sat 8:00–12:00"
+                  placeholder={t('onboarding.merchantHoursPlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantHours}
                   onChangeText={setMerchantHours}
@@ -757,10 +764,10 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Description</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.merchantDescriptionLabel')}</Text>
                 <TextInput
                   style={styles.multilineInput}
-                  placeholder="Family-run plumbing + heating merchants. Same-day delivery within 15 miles. Trade counter on-site."
+                  placeholder={t('onboarding.merchantDescriptionPlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={merchantDescription}
                   onChangeText={setMerchantDescription}
@@ -771,8 +778,7 @@ export default function Wizard() {
               </View>
 
               <Text style={[styles.step5Subtext, { marginTop: 24 }]}>
-                What supplies do you stock? Customers filtering by
-                trade will see you under every category you tick.
+                {t('onboarding.merchantStockIntro')}
               </Text>
               {Object.entries(TRADE_CATEGORIES).map(([catName, jobs]) => (
                 <View key={catName} style={styles.conciergeCatBlock}>
@@ -799,7 +805,7 @@ export default function Wizard() {
                               selected && { color: '#FFFFFF' },
                             ]}
                           >
-                            {job}
+                            {categoryLabel(job)}
                           </Text>
                         </TouchableOpacity>
                       );
@@ -808,8 +814,12 @@ export default function Wizard() {
                 </View>
               ))}
               <Text style={styles.conciergeCount}>
-                {selectedJobs.length} categor
-                {selectedJobs.length === 1 ? 'y' : 'ies'} stocked
+                {t(
+                  selectedJobs.length === 1
+                    ? 'onboarding.categoriesStockedOne'
+                    : 'onboarding.categoriesStockedOther',
+                  { count: selectedJobs.length },
+                )}
               </Text>
             </View>
           )}
@@ -818,13 +828,13 @@ export default function Wizard() {
             <View>
               <Text style={styles.heading}>
                 {isTradeConcierge
-                  ? 'Which trades can you cover?'
-                  : 'What specifically do you offer?'}
+                  ? t('onboarding.whichTrades')
+                  : t('onboarding.whatDoYouOffer')}
               </Text>
               {isOtherCategoryPath && !isTradeConcierge ? (
                 <TextInput
                   style={styles.multilineInput}
-                  placeholder="Describe what you offer in a sentence or two"
+                  placeholder={t('onboarding.describeOffer')}
                   placeholderTextColor="#6B7280"
                   value={otherJobDescription}
                   onChangeText={setOtherJobDescription}
@@ -836,8 +846,8 @@ export default function Wizard() {
                 <>
                   <Text style={styles.step5Subtext}>
                     {isTradeConcierge
-                      ? 'Pick everything you can help with — customers will see you under every filter you tick, and you’ll get notified for waitlist requests across all of them.'
-                      : 'Select all that apply'}
+                      ? t('onboarding.conciergeIntro')
+                      : t('onboarding.selectAll')}
                   </Text>
                   {isTradeConcierge ? (
                     // Concierge: flat list across EVERY trade category,
@@ -874,7 +884,7 @@ export default function Wizard() {
                                         selected && { color: '#FFFFFF' },
                                       ]}
                                     >
-                                      {job}
+                                      {categoryLabel(job)}
                                     </Text>
                                   </TouchableOpacity>
                                 );
@@ -884,8 +894,12 @@ export default function Wizard() {
                         ),
                       )}
                       <Text style={styles.conciergeCount}>
-                        {selectedJobs.length} trade
-                        {selectedJobs.length === 1 ? '' : 's'} selected
+                        {t(
+                          selectedJobs.length === 1
+                            ? 'onboarding.tradesSelectedOne'
+                            : 'onboarding.tradesSelectedOther',
+                          { count: selectedJobs.length },
+                        )}
                       </Text>
                     </View>
                   ) : (
@@ -893,7 +907,7 @@ export default function Wizard() {
                       {jobsForCategory.length > 12 && (
                         <TextInput
                           style={styles.jobSearch}
-                          placeholder="Search services"
+                          placeholder={t('onboarding.searchServices')}
                           placeholderTextColor="#6B7280"
                           value={jobQuery}
                           onChangeText={setJobQuery}
@@ -904,7 +918,7 @@ export default function Wizard() {
                       )}
                       {visibleJobs.length === 0 && (
                         <Text style={styles.jobSearchEmpty}>
-                          Nothing matches “{jobQuery.trim()}”.
+                          {t('onboarding.nothingMatches', { query: jobQuery.trim() })}
                         </Text>
                       )}
                     <View style={styles.pillWrap}>
@@ -934,7 +948,7 @@ export default function Wizard() {
                                 selected && { color: '#FFFFFF' },
                               ]}
                             >
-                              {label}
+                              {categoryLabel(label)}
                             </Text>
                           </TouchableOpacity>
                         );
@@ -949,13 +963,13 @@ export default function Wizard() {
 
           {step === 6 && (
             <View>
-              <Text style={styles.heading}>Your profile</Text>
+              <Text style={styles.heading}>{t('onboarding.yourProfile')}</Text>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Your name</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.yourName')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. John Smith"
+                  placeholder={t('onboarding.yourNamePlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={name}
                   onChangeText={setName}
@@ -964,10 +978,10 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Business or trading name (optional)</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.businessNameLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Smith Plumbing Ltd"
+                  placeholder={t('onboarding.businessNamePlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={businessName}
                   onChangeText={setBusinessName}
@@ -976,18 +990,18 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Years in business</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.yearsInBusiness')}</Text>
                 <View style={styles.pillWrap}>
                   {YEARS_OPTIONS.map((opt) => {
-                    const selected = yearsExp === opt;
+                    const selected = yearsExp === opt.value;
                     return (
                       <TouchableOpacity
-                        key={opt}
+                        key={opt.value}
                         style={[
                           styles.choicePill,
                           selected && { backgroundColor: theme, borderColor: theme },
                         ]}
-                        onPress={() => setYearsExp(selected ? '' : opt)}
+                        onPress={() => setYearsExp(selected ? '' : opt.value)}
                         activeOpacity={0.85}
                       >
                         <Text
@@ -996,7 +1010,7 @@ export default function Wizard() {
                             selected && { color: '#FFFFFF' },
                           ]}
                         >
-                          {opt}
+                          {t(opt.label)}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -1005,15 +1019,12 @@ export default function Wizard() {
               </View>
 
               <View style={styles.primerCard}>
-                <Text style={styles.primerTitle}>Why we need location</Text>
-                <Text style={styles.primerBody}>
-                  Your location helps customers find you when you&apos;re available. We
-                  only check your location when you&apos;re showing as available for work.
-                </Text>
+                <Text style={styles.primerTitle}>{t('onboarding.locationWhyTitle')}</Text>
+                <Text style={styles.primerBody}>{t('onboarding.locationWhyBody')}</Text>
                 {locationPermissionStatus === 'granted' ? (
                   <View style={[styles.primerButton, styles.primerButtonGranted]}>
                     <Text style={[styles.primerButtonText, { color: '#10B981' }]}>
-                      Location allowed ✓
+                      {t('onboarding.locationAllowed')}
                     </Text>
                   </View>
                 ) : (
@@ -1022,12 +1033,12 @@ export default function Wizard() {
                     onPress={handleAskLocation}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.primerButtonText}>Allow location</Text>
+                    <Text style={styles.primerButtonText}>{t('onboarding.allowLocation')}</Text>
                   </TouchableOpacity>
                 )}
                 {locationPermissionStatus === 'denied' && (
                   <Text style={styles.primerDenialNote}>
-                    You can enable later in your iPhone Settings.
+                    {t('onboarding.locationDeniedNote')}
                   </Text>
                 )}
               </View>
@@ -1054,10 +1065,10 @@ export default function Wizard() {
                 geocoder helps nothing.
               */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Postcode or area</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.postcodeLabel')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. PR1, or Pattaya"
+                  placeholder={t('onboarding.postcodePlaceholder')}
                   placeholderTextColor="#6B7280"
                   value={postcode}
                   onChangeText={setPostcode}
@@ -1065,12 +1076,12 @@ export default function Wizard() {
                   autoCorrect={false}
                 />
                 <Text style={styles.fieldHint}>
-                  A UK postcode, or the town or district you work in.
+                  {t('onboarding.postcodeHint')}
                 </Text>
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Service radius: {radius} miles</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.serviceRadius', { radius })}</Text>
                 <View style={styles.pillWrap}>
                   {RADIUS_OPTIONS.map((opt) => {
                     const selected = radius === opt.value;
@@ -1090,7 +1101,7 @@ export default function Wizard() {
                             selected && { color: '#FFFFFF' },
                           ]}
                         >
-                          {opt.display}
+                          {t('onboarding.radiusOption', { radius: opt.value })}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -1099,7 +1110,7 @@ export default function Wizard() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Profile photo (optional)</Text>
+                <Text style={styles.fieldLabel}>{t('onboarding.profilePhotoLabel')}</Text>
                 <View style={styles.photoContainer}>
                   <TouchableOpacity
                     style={[
@@ -1131,12 +1142,8 @@ export default function Wizard() {
 
           {step === 7 && (
             <View>
-              <Text style={styles.heading}>You&apos;re ready</Text>
-              <Text style={styles.step7Body}>
-                Your profile is set up. Customers can see you on the map as soon as
-                you&apos;re live. You can go online or offline any time from your
-                dashboard.
-              </Text>
+              <Text style={styles.heading}>{t('onboarding.youreReady')}</Text>
+              <Text style={styles.step7Body}>{t('onboarding.readyBody')}</Text>
 
               <View style={styles.goLiveCard}>
                 <TouchableOpacity
@@ -1145,7 +1152,7 @@ export default function Wizard() {
                   activeOpacity={0.85}
                   disabled={submitting}
                 >
-                  <Text style={styles.goLiveLabel}>Go live now?</Text>
+                  <Text style={styles.goLiveLabel}>{t('onboarding.goLiveNow')}</Text>
                   <Switch
                     value={goLive}
                     onValueChange={setGoLive}
@@ -1157,8 +1164,8 @@ export default function Wizard() {
                 </TouchableOpacity>
                 <Text style={styles.goLiveSubtext}>
                   {goLive
-                    ? "You'll appear on the map for 1 hour then automatically go offline."
-                    : 'Stay offline — go live from the dashboard when ready.'}
+                    ? t('onboarding.goLiveOnNote')
+                    : t('onboarding.goLiveOffNote')}
                 </Text>
               </View>
             </View>
@@ -1177,7 +1184,7 @@ export default function Wizard() {
               disabled={!canContinue}
               activeOpacity={0.85}
             >
-              <Text style={styles.continueButtonText}>Continue</Text>
+              <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1200,7 +1207,7 @@ export default function Wizard() {
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.continueButtonText}>Complete Setup</Text>
+                <Text style={styles.continueButtonText}>{t('onboarding.completeSetup')}</Text>
               )}
             </TouchableOpacity>
           </View>

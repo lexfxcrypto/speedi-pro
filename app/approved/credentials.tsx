@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth, getToken } from '../../lib/auth';
+import { useT, type TKey } from '../../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 
@@ -29,13 +30,13 @@ const REQUIRED_BY_TIER: Record<string, string[]> = {
   ],
 };
 
-const DOC_LABELS: Record<string, string> = {
-  profile_photo: 'Profile photo',
-  public_liability_insurance: 'Public liability insurance',
-  trade_certification: 'Trade certification (Gas Safe / NICEIC / OFTEC etc.)',
-  photo_id: 'Photo ID (passport or driving licence)',
-  business_address: 'Business address verification',
-  companies_house: 'Companies House document',
+const DOC_LABELS: Record<string, TKey> = {
+  profile_photo: 'approved.docProfilePhoto',
+  public_liability_insurance: 'approved.docPublicLiability',
+  trade_certification: 'approved.docTradeCertification',
+  photo_id: 'approved.docPhotoId',
+  business_address: 'approved.docBusinessAddress',
+  companies_house: 'approved.docCompaniesHouse',
 };
 
 type Doc = {
@@ -52,6 +53,7 @@ type Doc = {
 };
 
 export default function ApprovedCredentials() {
+  const { t } = useT();
   const router = useRouter();
   const [tier, setTier] = useState<string | null>(null);
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -111,7 +113,7 @@ export default function ApprovedCredentials() {
   const pickFromCamera = async (type: string): Promise<PickedAsset | null> => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow camera access to photograph your document.');
+      Alert.alert(t('approved.permissionNeeded'), t('approved.cameraPermissionBody'));
       return null;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -126,7 +128,7 @@ export default function ApprovedCredentials() {
   const pickFromLibrary = async (type: string): Promise<PickedAsset | null> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo access to upload from your camera roll.');
+      Alert.alert(t('approved.permissionNeeded'), t('approved.libraryPermissionBody'));
       return null;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -171,7 +173,7 @@ export default function ApprovedCredentials() {
       });
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => ({}));
-        throw new Error(err.error ?? 'Upload failed');
+        throw new Error(err.error ?? t('approved.uploadFailed'));
       }
       const { url } = await uploadRes.json();
 
@@ -181,7 +183,7 @@ export default function ApprovedCredentials() {
       });
       const result = await verifyRes.json();
       if (!verifyRes.ok) {
-        throw new Error(result.error ?? 'Verification failed');
+        throw new Error(result.error ?? t('approved.verificationFailed'));
       }
 
       const newDoc: Doc = {
@@ -199,14 +201,14 @@ export default function ApprovedCredentials() {
       setDocs((prev) => [newDoc, ...prev.filter((d) => d.documentType !== type)]);
 
       if (result.badgeJustApplied) {
-        Alert.alert('Badge active 🎉', 'All credentials verified — your badge is live.', [
-          { text: 'Done', onPress: () => router.back() },
+        Alert.alert(t('approved.badgeLiveTitle'), t('approved.badgeLiveBody'), [
+          { text: t('common.done'), onPress: () => router.back() },
         ]);
       }
     } catch (e) {
       Alert.alert(
-        'Upload failed',
-        e instanceof Error ? e.message : 'Please try again.',
+        t('approved.uploadFailed'),
+        e instanceof Error ? e.message : t('approved.pleaseTryAgain'),
       );
     } finally {
       setUploadingType(null);
@@ -216,31 +218,31 @@ export default function ApprovedCredentials() {
   const handleUpload = (type: string) => {
     if (uploadingType) return;
     Alert.alert(
-      'Add document',
-      'How would you like to add this document?',
+      t('approved.addDocumentTitle'),
+      t('approved.addDocumentBody'),
       [
         {
-          text: 'Take photo',
+          text: t('approved.takePhoto'),
           onPress: async () => {
             const asset = await pickFromCamera(type);
             if (asset) await uploadAsset(type, asset);
           },
         },
         {
-          text: 'Choose from camera roll',
+          text: t('approved.chooseFromCameraRoll'),
           onPress: async () => {
             const asset = await pickFromLibrary(type);
             if (asset) await uploadAsset(type, asset);
           },
         },
         {
-          text: 'Choose file (PDF)',
+          text: t('approved.chooseFilePdf'),
           onPress: async () => {
             const asset = await pickFromFiles();
             if (asset) await uploadAsset(type, asset);
           },
         },
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
       ],
     );
   };
@@ -259,9 +261,9 @@ export default function ApprovedCredentials() {
           activeOpacity={0.7}
         >
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-          <Text style={styles.backText}>Back</Text>
+          <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Verify credentials</Text>
+        <Text style={styles.headerTitle}>{t('approved.verifyCredentials')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -271,26 +273,17 @@ export default function ApprovedCredentials() {
         </View>
       ) : !tier ? (
         <View style={styles.body}>
-          <Text style={styles.emptyText}>
-            You&apos;re not enrolled in Speedi Approved yet. Sign up first to upload
-            credentials.
-          </Text>
+          <Text style={styles.emptyText}>{t('approved.notEnrolled')}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
           {allApproved ? (
             <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: '#00C67A' }]}>
-              <Text style={styles.cardTitle}>All documents verified ✓</Text>
-              <Text style={styles.cardBody}>
-                Your Speedi Approved badge is active. Re-upload any document below
-                if it changes or expires.
-              </Text>
+              <Text style={styles.cardTitle}>{t('approved.allVerifiedTitle')}</Text>
+              <Text style={styles.cardBody}>{t('approved.allVerifiedBody')}</Text>
             </View>
           ) : (
-            <Text style={styles.intro}>
-              Upload each required document. Verification is automatic and usually
-              takes a few seconds.
-            </Text>
+            <Text style={styles.intro}>{t('approved.uploadIntro')}</Text>
           )}
           {requiredDocs.map((type) => (
             <DocSlot
@@ -318,23 +311,24 @@ function DocSlot({
   uploading: boolean;
   onUpload: () => void;
 }) {
-  const label = DOC_LABELS[type] ?? type;
+  const { t, lang } = useT();
+  const label = DOC_LABELS[type] ? t(DOC_LABELS[type]) : type;
   const status = latest?.status;
 
   let pillColor = '#6B7280';
-  let pillLabel = 'Not uploaded';
+  let pillLabel = t('approved.notUploaded');
   let pillIcon = '•';
   if (status === 'approved') {
     pillColor = '#00C67A';
-    pillLabel = 'Verified';
+    pillLabel = t('approved.verified');
     pillIcon = '✓';
   } else if (status === 'pending') {
     pillColor = '#F59E0B';
-    pillLabel = 'Needs review';
+    pillLabel = t('approved.needsReview');
     pillIcon = '⚠';
   } else if (status === 'rejected') {
     pillColor = '#EF4444';
-    pillLabel = 'Rejected';
+    pillLabel = t('approved.rejected');
     pillIcon = '✕';
   }
 
@@ -352,26 +346,32 @@ function DocSlot({
       {latest?.summary ? (
         <Text style={styles.docSummary}>{latest.summary}</Text>
       ) : (
-        <Text style={styles.docSummary}>Not uploaded yet</Text>
+        <Text style={styles.docSummary}>{t('approved.notUploadedYet')}</Text>
       )}
 
       {status === 'approved' ? (
         <View style={styles.metaBlock}>
           {latest?.registrationNumber ? (
-            <Text style={styles.metaText}>Reg: {latest.registrationNumber}</Text>
+            <Text style={styles.metaText}>
+              {t('approved.regNumber', { value: latest.registrationNumber })}
+            </Text>
           ) : null}
           {latest?.expiryDate ? (
-            <Text style={styles.metaText}>Expires: {latest.expiryDate}</Text>
+            <Text style={styles.metaText}>
+              {t('approved.expires', { value: latest.expiryDate })}
+            </Text>
           ) : null}
           {latest?.detectedName ? (
-            <Text style={styles.metaText}>Name: {latest.detectedName}</Text>
+            <Text style={styles.metaText}>
+              {t('approved.detectedName', { value: latest.detectedName })}
+            </Text>
           ) : null}
         </View>
       ) : null}
 
       {status === 'pending' ? (
         <Text style={[styles.metaText, { color: '#F59E0B' }]}>
-          We&apos;ll check this within 24 hours.
+          {t('approved.checkWithin24h')}
         </Text>
       ) : null}
 
@@ -391,7 +391,14 @@ function DocSlot({
           <ActivityIndicator color="#E64A19" />
         ) : (
           <Text style={styles.uploadButtonText}>
-            {latest ? 'Upload another' : `Upload ${label.toLowerCase()}`}
+            {latest
+              ? t('approved.uploadAnother')
+              : t('approved.uploadDoc', {
+                  // Lower-casing suits the English sentence only; the Thai
+                  // labels carry proper nouns (Gas Safe, NICEIC) that must keep
+                  // their capitals.
+                  doc: lang === 'en' ? label.toLowerCase() : label,
+                })}
           </Text>
         )}
       </TouchableOpacity>

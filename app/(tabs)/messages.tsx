@@ -14,6 +14,7 @@ import {
 import { fetchWithAuth } from '../../lib/auth';
 import { getProviderNoun } from '../../lib/copy';
 import { SHOW_IAP_CREDITS } from '../../lib/featureFlags';
+import { getLang, t, useT } from '../../lib/i18n';
 import { normalisePhone, whatsappUrl } from '../../lib/phone';
 import CreditsPurchaseSheet from '../../components/CreditsPurchaseSheet';
 
@@ -39,13 +40,18 @@ function truncate(text: string, max: number): string {
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return t('messages.timeJustNow');
+  if (mins < 60) return t('messages.timeMinutesAgo', { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hr ago`;
+  if (hours < 24) return t('messages.timeHoursAgo', { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return days === 1 ? 'Yesterday' : `${days}d ago`;
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  if (days < 7) {
+    return days === 1 ? t('messages.timeYesterday') : t('messages.timeDaysAgo', { count: days });
+  }
+  return new Date(iso).toLocaleDateString(getLang() === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+  });
 }
 
 function initialOf(name: string): string {
@@ -55,6 +61,7 @@ function initialOf(name: string): string {
 
 export default function Messages() {
   const router = useRouter();
+  const { t } = useT();
   const [messages, setMessages] = useState<Message[]>([]);
   const [quoteCount, setQuoteCount] = useState(0);
   const [showOlder, setShowOlder] = useState(false);
@@ -98,36 +105,41 @@ export default function Messages() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         await load();
         Alert.alert(
-          'Declined',
-          `${msg.otherUserName} has been notified.`,
-          [{ text: 'OK' }],
+          t('messages.declinedTitle'),
+          t('messages.declinedBody', { name: msg.otherUserName }),
+          [{ text: t('common.ok') }],
         );
       } else {
-        Alert.alert('Error', data.error || 'Could not decline. Try again.');
+        Alert.alert(t('messages.errorTitle'), data.error || t('messages.declineFailed'));
       }
     } catch {
-      Alert.alert('Error', 'Connection failed. Try again.');
+      Alert.alert(t('messages.errorTitle'), t('messages.connectionFailed'));
     }
   };
 
   const promptDeclineReason = (msg: Message) => {
+    // getProviderNoun falls back to the English 'provider'; swap that for
+    // the translated word, keep trade names as-is.
+    const noun = getProviderNoun(null);
     Alert.alert(
-      `Decline ${msg.otherUserName}'s request?`,
-      `Pick a reason — they'll get a notification so they can try another ${getProviderNoun(null)}.`,
+      t('messages.declinePromptTitle', { name: msg.otherUserName }),
+      t('messages.declinePromptBody', {
+        noun: noun === 'provider' ? t('messages.providerFallback') : noun,
+      }),
       [
         {
-          text: 'Wrong job type',
+          text: t('messages.declineWrongJobType'),
           onPress: () => declineMessage(msg, 'wrong_job_type'),
         },
         {
-          text: 'Too far away',
+          text: t('messages.declineTooFar'),
           onPress: () => declineMessage(msg, 'too_far'),
         },
         {
-          text: 'Not available',
+          text: t('messages.declineNotAvailable'),
           onPress: () => declineMessage(msg, 'not_available'),
         },
-        { text: 'Back', style: 'cancel' },
+        { text: t('common.back'), style: 'cancel' },
       ],
     );
   };
@@ -157,74 +169,79 @@ export default function Messages() {
             onPress: () => Linking.openURL(whatsappUrl(phone)),
           });
           actions.push({
-            text: '💬 Reply via SMS',
+            text: t('messages.replyViaSms'),
             onPress: () => Linking.openURL(`sms:${normalisePhone(phone)}`),
           });
           actions.push({
-            text: '📞 Call',
+            text: t('messages.call'),
             onPress: () => Linking.openURL(`tel:${normalisePhone(phone)}`),
           });
         }
         if (email) {
           actions.push({
-            text: '✉️ Email',
+            text: t('messages.email'),
             onPress: () => Linking.openURL(`mailto:${email}`),
           });
         }
-        actions.push({ text: 'OK', style: 'cancel' });
+        actions.push({ text: t('common.ok'), style: 'cancel' });
 
         Alert.alert(
-          '✅ Connection unlocked — 1 credit spent',
+          t('messages.unlockedTitle'),
           `${data.customer?.name ?? msg.otherUserName}\n\n` +
-            `Phone: ${phone || 'Not provided'}\n` +
-            `Email: ${email || 'Not provided'}\n\n` +
-            `${data.remainingCredits} credits remaining.`,
+            `${t('messages.contactPhone', { phone: phone || t('messages.notProvided') })}\n` +
+            `${t('messages.contactEmail', { email: email || t('messages.notProvided') })}\n\n` +
+            t(
+              data.remainingCredits === 1
+                ? 'messages.creditsRemainingOne'
+                : 'messages.creditsRemainingOther',
+              { count: data.remainingCredits },
+            ),
           actions,
         );
       } else if (data.code === 'NO_CREDITS') {
         if (SHOW_IAP_CREDITS) {
           Alert.alert(
-            'Not enough credits',
-            'You need at least 1 credit to unlock this message.',
+            t('messages.notEnoughCreditsTitle'),
+            t('messages.notEnoughCreditsBody'),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Buy credits', onPress: () => setShowPurchaseSheet(true) },
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('messages.buyCredits'), onPress: () => setShowPurchaseSheet(true) },
             ],
           );
         } else {
           Alert.alert(
-            'Not enough credits',
-            'You need at least 1 credit to unlock this message. Credit balances are managed on speedi.co.uk — sign in from any web browser to top up.',
-            [{ text: 'OK' }],
+            t('messages.notEnoughCreditsTitle'),
+            t('messages.notEnoughCreditsWebBody'),
+            [{ text: t('common.ok') }],
           );
         }
       } else if (data.code === 'ALREADY_ACCEPTED') {
         load();
       } else {
-        Alert.alert('Error', data.error || 'Could not unlock. Try again.');
+        Alert.alert(t('messages.errorTitle'), data.error || t('messages.unlockFailed'));
       }
     } catch {
-      Alert.alert('Error', 'Connection failed. Try again.');
+      Alert.alert(t('messages.errorTitle'), t('messages.connectionFailed'));
     }
   };
 
   const openContact = (msg: Message) => {
     if (msg.pendingMessageId) {
       const title = msg.accepted
-        ? `New request from ${msg.otherUserName}`
-        : `New message from ${msg.otherUserName}`;
+        ? t('messages.newRequestFrom', { name: msg.otherUserName })
+        : t('messages.newMessageFrom', { name: msg.otherUserName });
       const body = msg.accepted
-        ? `"${msg.lastMessage}"\n\nThis is a new request (more than 5 minutes after the last one). Spend 1 credit to open it.`
-        : `"${msg.lastMessage}"\n\nSpend 1 credit to unlock the customer's phone & email and open this request.`;
+        ? t('messages.newRequestBody', { message: msg.lastMessage })
+        : t('messages.newMessageBody', { message: msg.lastMessage });
       Alert.alert(title, body, [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Decline',
+          text: t('messages.decline'),
           style: 'destructive',
           onPress: () => promptDeclineReason(msg),
         },
         {
-          text: 'Open · 1 credit',
+          text: t('messages.openOneCredit'),
           onPress: () => acceptMessage(msg),
         },
       ]);
@@ -243,30 +260,30 @@ export default function Messages() {
         onPress: () => Linking.openURL(whatsappUrl(msg.otherUserPhone)),
       });
       actions.push({
-        text: '💬 Reply via SMS',
+        text: t('messages.replyViaSms'),
         onPress: () => Linking.openURL(`sms:${normalisePhone(msg.otherUserPhone)}`),
       });
       actions.push({
-        text: '📞 Call',
+        text: t('messages.call'),
         onPress: () => Linking.openURL(`tel:${normalisePhone(msg.otherUserPhone)}`),
       });
     }
     if (msg.otherUserEmail) {
       actions.push({
-        text: '✉️ Email',
+        text: t('messages.email'),
         onPress: () => Linking.openURL(`mailto:${msg.otherUserEmail}`),
       });
     }
     actions.push({
-      text: '🌐 Reply on web',
+      text: t('messages.replyOnWeb'),
       onPress: () => Linking.openURL('https://www.speeditrades.com/messages'),
     });
-    actions.push({ text: 'Close', style: 'cancel' });
+    actions.push({ text: t('common.close'), style: 'cancel' });
 
     const body =
-      `Phone: ${msg.otherUserPhone || 'Not provided'}\n` +
-      `Email: ${msg.otherUserEmail || 'Not provided'}\n\n` +
-      `Last message:\n"${msg.lastMessage}"`;
+      `${t('messages.contactPhone', { phone: msg.otherUserPhone || t('messages.notProvided') })}\n` +
+      `${t('messages.contactEmail', { email: msg.otherUserEmail || t('messages.notProvided') })}\n\n` +
+      t('messages.lastMessage', { message: msg.lastMessage });
 
     Alert.alert(msg.otherUserName, body, actions);
   };
@@ -283,9 +300,16 @@ export default function Messages() {
             <Text style={styles.iconEmoji}>📋</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.linkTitle}>Quote Requests</Text>
+            <Text style={styles.linkTitle}>{t('messages.quoteRequests')}</Text>
             <Text style={styles.linkSubtitle}>
-              {quoteCount > 0 ? `${quoteCount} new quotes waiting` : 'No new quotes'}
+              {quoteCount > 0
+                ? t(
+                    quoteCount === 1
+                      ? 'messages.newQuotesWaitingOne'
+                      : 'messages.newQuotesWaitingOther',
+                    { count: quoteCount },
+                  )
+                : t('messages.noNewQuotes')}
             </Text>
           </View>
           <Text style={styles.chevron}>›</Text>
@@ -300,10 +324,10 @@ export default function Messages() {
             <Text style={styles.iconEmoji}>💬</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.linkTitle}>All Messages</Text>
+            <Text style={styles.linkTitle}>{t('messages.allMessages')}</Text>
             <Text style={styles.linkSubtitle}>
-              {messages.length} total ·{' '}
-              {showOlder ? 'Hide older' : 'View full history'}
+              {t('messages.totalCount', { count: messages.length })} ·{' '}
+              {showOlder ? t('messages.hideOlder') : t('messages.viewFullHistory')}
             </Text>
           </View>
           <Text style={styles.chevron}>{showOlder ? '˅' : '›'}</Text>
@@ -320,10 +344,10 @@ export default function Messages() {
 
           return (
             <>
-              <Text style={styles.recentLabel}>RECENT — LAST 7 DAYS</Text>
+              <Text style={styles.recentLabel}>{t('messages.recentLabel')}</Text>
 
               {recent.length === 0 ? (
-                <Text style={styles.emptyText}>No messages in the last 7 days</Text>
+                <Text style={styles.emptyText}>{t('messages.noRecentMessages')}</Text>
               ) : (
                 recent.map((msg) => (
                   <TouchableOpacity
@@ -343,11 +367,11 @@ export default function Messages() {
                         <Text style={styles.messageName}>{msg.otherUserName}</Text>
                         {msg.pendingMessageId ? (
                           <View style={styles.lockBadge}>
-                            <Text style={styles.lockBadgeText}>🔒 1 credit</Text>
+                            <Text style={styles.lockBadgeText}>{t('messages.lockBadge')}</Text>
                           </View>
                         ) : msg.unread ? (
                           <View style={styles.newBadge}>
-                            <Text style={styles.newBadgeText}>New</Text>
+                            <Text style={styles.newBadgeText}>{t('messages.newBadge')}</Text>
                           </View>
                         ) : null}
                       </View>
@@ -369,12 +393,12 @@ export default function Messages() {
                       activeOpacity={0.7}
                     >
                       <Text style={styles.viewAllText}>
-                        View all messages ({older.length} older)
+                        {t('messages.viewAllOlder', { count: older.length })}
                       </Text>
                     </TouchableOpacity>
                   ) : (
                     <>
-                      <Text style={[styles.recentLabel, { marginTop: 24 }]}>OLDER MESSAGES</Text>
+                      <Text style={[styles.recentLabel, { marginTop: 24 }]}>{t('messages.olderLabel')}</Text>
                       {older.map((msg) => (
                         <TouchableOpacity
                           key={msg.id}
@@ -403,7 +427,7 @@ export default function Messages() {
                         onPress={() => setShowOlder(false)}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.viewAllText}>Hide older messages</Text>
+                        <Text style={styles.viewAllText}>{t('messages.hideOlderMessages')}</Text>
                       </TouchableOpacity>
                     </>
                   )}

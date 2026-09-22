@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
+import { categoryLabel, getLang, useT } from '../lib/i18n';
 import { normalisePhone, whatsappUrl } from '../lib/phone';
 
 const API = 'https://www.speeditrades.com';
@@ -28,7 +29,7 @@ type Job = {
 
 function formatDate(iso: string | null): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-GB', {
+  return new Date(iso).toLocaleDateString(getLang() === 'th' ? 'th-TH-u-ca-gregory' : 'en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -37,6 +38,7 @@ function formatDate(iso: string | null): string {
 
 export default function JobHistory() {
   const router = useRouter();
+  const { t } = useT();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -68,9 +70,9 @@ export default function JobHistory() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Job History</Text>
+        <Text style={styles.title}>{t('jobHistory.title')}</Text>
         <View style={styles.backBtn} />
       </View>
 
@@ -80,16 +82,16 @@ export default function JobHistory() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.container}>
-          <Text style={styles.subtitle}>Last 30 days</Text>
+          <Text style={styles.subtitle}>{t('jobHistory.last30Days')}</Text>
           {jobs.length === 0 ? (
-            <Text style={styles.emptyText}>No completed jobs in the last 30 days</Text>
+            <Text style={styles.emptyText}>{t('jobHistory.empty')}</Text>
           ) : (
             jobs.map((job) => (
               <View key={job.id} style={styles.card}>
                 <View style={styles.bar} />
                 <View style={styles.body}>
-                  <Text style={styles.name}>{job.customerName ?? 'Customer'}</Text>
-                  <Text style={styles.meta}>{job.jobType}</Text>
+                  <Text style={styles.name}>{job.customerName ?? t('jobHistory.customer')}</Text>
+                  <Text style={styles.meta}>{categoryLabel(job.jobType)}</Text>
                   {job.description ? (
                     <Text style={styles.description}>{job.description}</Text>
                   ) : null}
@@ -112,7 +114,7 @@ export default function JobHistory() {
                               Linking.openURL(`tel:${normalisePhone(job.customerPhone)}`)
                             }
                           >
-                            <Text style={styles.actionText}>📞 Call</Text>
+                            <Text style={styles.actionText}>{t('jobHistory.call')}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.actionBtn}
@@ -120,7 +122,7 @@ export default function JobHistory() {
                               Linking.openURL(`sms:${normalisePhone(job.customerPhone)}`)
                             }
                           >
-                            <Text style={styles.actionText}>💬 SMS</Text>
+                            <Text style={styles.actionText}>{t('jobHistory.sms')}</Text>
                           </TouchableOpacity>
                         </>
                       ) : null}
@@ -129,13 +131,13 @@ export default function JobHistory() {
                           style={styles.actionBtn}
                           onPress={() => Linking.openURL(`mailto:${job.customerEmail}`)}
                         >
-                          <Text style={styles.actionText}>✉ Email</Text>
+                          <Text style={styles.actionText}>{t('jobHistory.email')}</Text>
                         </TouchableOpacity>
                       ) : null}
                     </View>
                   ) : (
                     <Text style={styles.noContact}>
-                      No contact details captured for this customer
+                      {t('jobHistory.noContactDetails')}
                     </Text>
                   )}
                 </View>

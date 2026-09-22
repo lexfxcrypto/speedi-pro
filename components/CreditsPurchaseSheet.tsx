@@ -30,6 +30,7 @@ import {
   type CreditPack,
 } from "../lib/iap";
 import { IAP_PRODUCT_IDS } from "../lib/featureFlags";
+import { useT } from "../lib/i18n";
 
 const CREDIT_AMOUNT_BY_PRODUCT: Record<string, number> = {
   "com.speeditrades.speedipro.credits_10": 10,
@@ -41,6 +42,26 @@ function creditCountFor(productId: string): number {
   return CREDIT_AMOUNT_BY_PRODUCT[productId] ?? 0;
 }
 
+/**
+ * Per-credit price in the pack's own currency. This used to prefix a
+ * hardcoded "£", which was wrong for anyone whose App Store is not in
+ * pounds — a Thai storefront showed a per-credit price in pounds
+ * beside a pack price in baht.
+ * Falls back to the bare number if Intl cannot format the currency.
+ */
+function formatPerCredit(value: number, currency: string, lang: string): string {
+  try {
+    return new Intl.NumberFormat(lang === "th" ? "th-TH" : "en-GB", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return value.toFixed(2);
+  }
+}
+
 export default function CreditsPurchaseSheet({
   visible,
   onClose,
@@ -50,6 +71,7 @@ export default function CreditsPurchaseSheet({
   onClose: () => void;
   onPurchased?: (newBalance: number) => void;
 }) {
+  const { t, lang } = useT();
   const [products, setProducts] = useState<CreditPack[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -86,16 +108,12 @@ export default function CreditsPurchaseSheet({
         fetched.sort((a, b) => creditCountFor(a.productId) - creditCountFor(b.productId));
         setProducts(fetched);
         if (fetched.length === 0) {
-          setLoadError(
-            "Credit packs aren't available right now. Try again in a moment, or top up on speedi.co.uk.",
-          );
+          setLoadError(t("modals.creditsUnavailable"));
         }
       } catch (e) {
         if (cancelled) return;
         console.log("IAP product fetch failed:", e);
-        setLoadError(
-          "Couldn't load credit packs. Check your connection and try again.",
-        );
+        setLoadError(t("modals.creditsLoadFailed"));
       } finally {
         if (!cancelled) setLoadingProducts(false);
       }
@@ -112,16 +130,19 @@ export default function CreditsPurchaseSheet({
       const { creditsAdded, newBalance } = await buyCredits(productId);
       onPurchased?.(newBalance);
       Alert.alert(
-        "Credits added 🎉",
-        `${creditsAdded} credit${creditsAdded === 1 ? "" : "s"} added to your account. You now have ${newBalance}.`,
-        [{ text: "Done", onPress: onClose }],
+        t("modals.creditsAddedTitle"),
+        t(creditsAdded === 1 ? "modals.creditsAddedOne" : "modals.creditsAddedOther", {
+          count: creditsAdded,
+          balance: newBalance,
+        }),
+        [{ text: t("common.done"), onPress: onClose }],
       );
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Try again.";
+      const message = e instanceof Error ? e.message : t("common.retry");
       // Suppress the noisy "user cancelled" path — Apple uses code E_USER_CANCELLED
       // on react-native-iap. Cheap heuristic: ignore messages with "cancel".
       if (!/cancel/i.test(message)) {
-        Alert.alert("Purchase failed", message);
+        Alert.alert(t("modals.creditsPurchaseFailed"), message);
       }
     } finally {
       setBuying(null);
@@ -139,14 +160,12 @@ export default function CreditsPurchaseSheet({
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
           <View style={styles.titleRow}>
-            <Text style={styles.title}>Buy credits</Text>
+            <Text style={styles.title}>{t("modals.creditsTitle")}</Text>
             <View style={styles.introBadge}>
-              <Text style={styles.introBadgeText}>INTRO PRICING</Text>
+              <Text style={styles.introBadgeText}>{t("modals.creditsIntroBadge")}</Text>
             </View>
           </View>
-          <Text style={styles.subtitle}>
-            1 credit unlocks one customer contact when you respond to a job. Bigger packs save more per credit.
-          </Text>
+          <Text style={styles.subtitle}>{t("modals.creditsSubtitle")}</Text>
 
           {loadingProducts ? (
             <View style={styles.loadingBlock}>
@@ -169,9 +188,11 @@ export default function CreditsPurchaseSheet({
                     activeOpacity={0.85}
                   >
                     <View style={styles.packLeft}>
-                      <Text style={styles.packCredits}>{credits} credits</Text>
+                      <Text style={styles.packCredits}>{t("modals.creditsPackCount", { count: credits })}</Text>
                       <Text style={styles.packDetail}>
-                        £{(p.priceValue / credits).toFixed(2)} per credit
+                        {t("modals.creditsPerCredit", {
+                          price: formatPerCredit(p.priceValue / credits, p.currency, lang),
+                        })}
                       </Text>
                     </View>
                     {isBuying ? (
@@ -185,13 +206,10 @@ export default function CreditsPurchaseSheet({
             </ScrollView>
           )}
 
-          <Text style={styles.footer}>
-            Same-priced packs are available on speedi.co.uk — saving on Apple&apos;s
-            commission. Use whichever&apos;s easier.
-          </Text>
+          <Text style={styles.footer}>{t("modals.creditsFooter")}</Text>
 
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-            <Text style={styles.closeText}>Close</Text>
+            <Text style={styles.closeText}>{t("common.close")}</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>

@@ -1,0 +1,91 @@
+/** English strings for this area. Keys are the contract: th/home.ts must have every one. */
+const en = {
+  // The light — wording follows GLOSSARY.md.
+  statusGreen: 'Available Now',
+  statusAmber: 'Finishing Up',
+  statusRed: 'Busy',
+  statusOffline: 'Offline — not visible on map',
+  countdownRed: '{emoji} Busy · Free in {time}',
+  countdownAmber: '{emoji} Finishing Up · Available in {time}',
+  countdownGreen: '{emoji} Available Now · {time} remaining',
+  liveUpdating: 'Live · updating location',
+  goOnline: '● Go Online',
+  goOffline: '● Go Offline',
+  notePlaceholder: 'Available for… quotes, small jobs, consultations',
+  greenFor: 'Green for',
+  hoursOne: '{count} hour',
+  hoursOther: '{count} hours',
+
+  greetingMorning: 'Good morning',
+  greetingAfternoon: 'Good afternoon',
+  greetingEvening: 'Good evening',
+  greetingFallbackName: 'there',
+  logOut: 'Log Out',
+
+  // Speedi Approved card.
+  approvedPendingTitle: '⏳ Speedi Approved — pending',
+  approvedGetTitle: '👑 Get Speedi Approved',
+  approvedActive: 'Active · {tier}',
+  tierPremises: 'Premises',
+  tierMobile: 'Mobile',
+  approvedUploadCredentials: 'Upload your credentials to activate',
+  approvedUploadBy: 'Upload credentials by {date}',
+  approvedCancelled: 'Cancelled — re-enrol',
+  approvedPaused: 'Paused — resume',
+  approvedPitch: 'Verified badge + monthly credits',
+  approvedCheckA11y: 'Speedi Approved verified',
+
+  // Quotes-map diagnostics alert.
+  quotesMapAlertTitle: "You won't show on the quotes map yet",
+  quotesMapUnknown: 'Unknown reason — check with support.',
+  diagRole: '• Your role is "{role}", needs to be TRADESPERSON',
+  diagProviderType: '• providerType is "service" — switch to a non-service type',
+  diagLocation: '• Tap green first to share your live location',
+  diagDemo: '• Account is flagged as demo',
+  diagRejected: '• Server rejected the toggle',
+  diagExpiry: '• Expiry did not set correctly',
+
+  // Banners.
+  newMessageFrom: '💬 New message from {name}',
+  unknown: 'Unknown',
+  reply: 'Reply',
+  newQuoteRequest: '📋 New quote request',
+  quoteBannerBody: '{jobType} — tap to respond',
+  tapToView: 'Tap to view',
+  newWaitlistJobOne: '🆕 New waitlist job nearby',
+  newWaitlistJobsOther: '🆕 {count} new waitlist jobs nearby',
+  jobDistance: '{jobType} — {distance} mi away',
+  newCompanyMessage: '📨 New company message',
+  newCompanyMessageFor: '📨 New company message for {name}',
+  someone: 'Someone',
+
+  // Calendar event suggestion.
+  eventYouHave: '📅 You have',
+  eventUntil: 'until {time}',
+  eventGoRedPrompt: 'Want to go red automatically?',
+  goRed: 'Go Red',
+  dismiss: 'Dismiss',
+
+  // Stats and cards.
+  statCredits: 'Credits',
+  statJobsToday: 'Jobs Today',
+  statRating: 'Rating',
+  companyInbox: '📨 Company Inbox',
+  companyPending: '{count} pending',
+  companyMsgFor: 'For {name}',
+  yourCompany: 'your company',
+  companyMsgFrom: 'From {name}',
+  creditsRemainingOne: '{count} credit remaining',
+  creditsRemainingOther: '{count} credits remaining',
+  tapToBuyMore: 'Tap to buy more',
+  manageOnWeb: 'Manage on speedi.co.uk',
+  quotesTitle: 'Available for Quotes',
+  quotesUntil: 'On the live quotes map until {time}',
+  quotesPitch: 'Show up on the live map for customers looking for quotes (2h)',
+  yoriWaitingNearby: '— {count} waiting nearby',
+  todaysSchedule: "Today's Schedule",
+  nextEvent: 'Next: {time} · {title}',
+  tapToViewDay: 'Tap to view your day',
+} as const;
+
+export default en;

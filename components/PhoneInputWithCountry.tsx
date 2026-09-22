@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useT } from '../lib/i18n';
 
 type Country = {
   iso: string;
@@ -83,12 +84,13 @@ export function PhoneInputWithCountry({
   onChange,
   defaultIso,
   editable = true,
-  placeholder = 'Phone number',
+  placeholder,
   placeholderTextColor = '#6B7280',
 }: Props) {
   // Omitted: the UK, or Thailand on a phone set to Bangkok time — a Thai
   // number typed with the UK selected is saved as +4481…, which nobody
   // can ring.
+  const { t } = useT();
   const fallbackIso = defaultIso ?? guessIso();
   const split = useMemo(() => splitE164(value, fallbackIso), [value, fallbackIso]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -118,7 +120,7 @@ export function PhoneInputWithCountry({
         onChangeText={(next) => emit(split.iso, next)}
         keyboardType="phone-pad"
         editable={editable}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('modals.phonePlaceholder')}
         placeholderTextColor={placeholderTextColor}
       />
 
@@ -130,7 +132,7 @@ export function PhoneInputWithCountry({
       >
         <SafeAreaView style={styles.modalSafe}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Country code</Text>
+            <Text style={styles.modalTitle}>{t('modals.phoneCountryCode')}</Text>
             <Pressable onPress={() => setPickerOpen(false)} hitSlop={12}>
               <Ionicons name="close" size={22} color="#FFFFFF" />
             </Pressable>

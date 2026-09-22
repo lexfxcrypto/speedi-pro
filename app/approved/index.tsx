@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../../lib/auth';
+import { t, useT } from '../../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 
@@ -43,12 +44,13 @@ function formatDate(iso: string | null): string {
 }
 
 function tierLabel(tier: string): string {
-  if (tier === 'premises') return 'Approved Premises';
-  if (tier === 'mobile') return 'Approved Mobile';
+  if (tier === 'premises') return t('approved.tierPremises');
+  if (tier === 'mobile') return t('approved.tierMobile');
   return tier;
 }
 
 export default function Approved() {
+  const { t } = useT();
   const router = useRouter();
   const [approved, setApproved] = useState<SpeedyApproved | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,12 +81,12 @@ export default function Approved() {
 
   const handleCancel = () => {
     Alert.alert(
-      'Cancel Speedi Approved?',
-      "Your badge will be removed immediately. Credits already deducted won't be refunded.",
+      t('approved.cancelConfirmTitle'),
+      t('approved.cancelConfirmBody'),
       [
-        { text: 'Keep subscription', style: 'cancel' },
+        { text: t('approved.keepSubscription'), style: 'cancel' },
         {
-          text: 'Cancel subscription',
+          text: t('approved.cancelSubscription'),
           style: 'destructive',
           onPress: async () => {
             setCancelling(true);
@@ -92,12 +94,12 @@ export default function Approved() {
               const res = await fetchWithAuth(`${API}/api/approved/cancel`, {
                 method: 'POST',
               });
-              if (!res.ok) throw new Error('Cancel failed');
+              if (!res.ok) throw new Error(t('approved.cancelFailed'));
               await loadApproved();
             } catch (e) {
               Alert.alert(
-                'Cancel failed',
-                e instanceof Error ? e.message : 'Please try again.',
+                t('approved.cancelFailed'),
+                e instanceof Error ? e.message : t('approved.pleaseTryAgain'),
               );
             } finally {
               setCancelling(false);
@@ -117,9 +119,9 @@ export default function Approved() {
           activeOpacity={0.7}
         >
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-          <Text style={styles.backText}>Back</Text>
+          <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Speedi Approved</Text>
+        <Text style={styles.headerTitle}>{t('approved.title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -143,6 +145,7 @@ export default function Approved() {
 }
 
 function NotEnrolled() {
+  const { t } = useT();
   const [selectedTier, setSelectedTier] = useState<'mobile' | 'premises'>('mobile');
 
   const handleOpenWeb = async () => {
@@ -160,44 +163,36 @@ function NotEnrolled() {
     <ScrollView contentContainerStyle={styles.body}>
       <View style={styles.heroBlock}>
         <Text style={styles.heroEmoji}>👑</Text>
-        <Text style={styles.heroTitle}>Get Speedi Approved</Text>
-        <Text style={styles.heroSubtitle}>Verified providers get more jobs.</Text>
+        <Text style={styles.heroTitle}>{t('approved.heroTitle')}</Text>
+        <Text style={styles.heroSubtitle}>{t('approved.heroSubtitle')}</Text>
       </View>
 
       <TierCard
         selected={selectedTier === 'mobile'}
         onSelect={() => setSelectedTier('mobile')}
-        title="👑 Speedi Approved Mobile"
-        body="Standard verified provider. Crown badge on your pin."
-        price="5 cr/mo"
+        title={t('approved.mobileCardTitle')}
+        body={t('approved.mobileCardBody')}
+        price={t('approved.pricePerMonth', { credits: 5 })}
       />
 
       <TierCard
         selected={selectedTier === 'premises'}
         onSelect={() => setSelectedTier('premises')}
-        title="👑 Speedi Approved Premises"
-        body="Fixed business address. Building pin with crown. Instant contact."
-        price="15 cr/mo"
+        title={t('approved.premisesCardTitle')}
+        body={t('approved.premisesCardBody')}
+        price={t('approved.pricePerMonth', { credits: 15 })}
       />
 
       <View style={styles.calloutCard}>
-        <Text style={styles.calloutHeader}>What you get</Text>
-        <Text style={styles.calloutLine}>👑 Gold crown badge on your map pin</Text>
-        <Text style={styles.calloutLine}>
-          ✓ &quot;Speedi Approved&quot; on your profile
-        </Text>
-        <Text style={styles.calloutLine}>📈 Higher placement in search results</Text>
-        <Text style={styles.calloutLine}>
-          14 days to upload credentials — badge active immediately
-        </Text>
+        <Text style={styles.calloutHeader}>{t('approved.whatYouGet')}</Text>
+        <Text style={styles.calloutLine}>{t('approved.perkCrown')}</Text>
+        <Text style={styles.calloutLine}>{t('approved.perkProfile')}</Text>
+        <Text style={styles.calloutLine}>{t('approved.perkPlacement')}</Text>
+        <Text style={styles.calloutLine}>{t('approved.perkGracePeriod')}</Text>
         {selectedTier === 'premises' ? (
           <>
-            <Text style={styles.calloutLine}>
-              📞 Instant &quot;Call to book&quot; button visible on first tap
-            </Text>
-            <Text style={styles.calloutLine}>
-              🏢 Building pin with your business address
-            </Text>
+            <Text style={styles.calloutLine}>{t('approved.perkCallToBook')}</Text>
+            <Text style={styles.calloutLine}>{t('approved.perkBuildingPin')}</Text>
           </>
         ) : null}
       </View>
@@ -207,7 +202,7 @@ function NotEnrolled() {
         onPress={handleOpenWeb}
         activeOpacity={0.85}
       >
-        <Text style={styles.primaryButtonText}>Continue on the web</Text>
+        <Text style={styles.primaryButtonText}>{t('approved.continueOnWeb')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -259,6 +254,7 @@ function EnrolledView({
   cancelling: boolean;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const router = useRouter();
   const isVerified = approved.credentialsStatus === 'verified';
   const isActive = approved.status === 'active';
@@ -269,14 +265,14 @@ function EnrolledView({
   let pillLabel = approved.status;
   if (isActive && isVerified) {
     pillColor = '#00C67A';
-    pillLabel = 'Badge active';
+    pillLabel = t('approved.badgeActive');
   } else if (isActive) {
     pillColor = '#F59E0B';
-    pillLabel = 'Badge pending docs';
+    pillLabel = t('approved.badgePendingDocs');
   } else if (isCancelled) {
-    pillLabel = 'Cancelled';
+    pillLabel = t('approved.statusCancelled');
   } else if (isPaused) {
-    pillLabel = 'Paused';
+    pillLabel = t('approved.statusPaused');
   }
 
   return (
@@ -284,7 +280,7 @@ function EnrolledView({
       <View style={styles.card}>
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Current tier</Text>
+            <Text style={styles.label}>{t('approved.currentTier')}</Text>
             <Text style={styles.cardTitle}>{tierLabel(approved.tier)}</Text>
           </View>
           <View style={[styles.pill, { backgroundColor: `${pillColor}22` }]}>
@@ -295,20 +291,20 @@ function EnrolledView({
         <View style={styles.divider} />
 
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Monthly credits</Text>
+          <Text style={styles.label}>{t('approved.monthlyCredits')}</Text>
           <Text style={styles.value}>{approved.monthlyCredits}</Text>
         </View>
 
         {isActive ? (
           <View style={styles.detailRow}>
-            <Text style={styles.label}>Next billing</Text>
+            <Text style={styles.label}>{t('approved.nextBilling')}</Text>
             <Text style={styles.value}>{formatDate(approved.nextBillingDate)}</Text>
           </View>
         ) : null}
 
         {isActive && !isVerified ? (
           <View style={styles.detailRow}>
-            <Text style={styles.label}>Docs deadline</Text>
+            <Text style={styles.label}>{t('approved.docsDeadline')}</Text>
             <Text style={[styles.value, { color: '#F59E0B' }]}>
               {formatDate(approved.docsDeadline)}
             </Text>
@@ -322,7 +318,7 @@ function EnrolledView({
           onPress={() => router.push('/approved/credentials')}
           activeOpacity={0.85}
         >
-          <Text style={styles.primaryButtonText}>Upload credentials</Text>
+          <Text style={styles.primaryButtonText}>{t('approved.uploadCredentials')}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -332,7 +328,7 @@ function EnrolledView({
           onPress={() => Linking.openURL(`${API}/approved`)}
           activeOpacity={0.85}
         >
-          <Text style={styles.primaryButtonText}>Re-enrol on the web</Text>
+          <Text style={styles.primaryButtonText}>{t('approved.reenrolOnWeb')}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -342,7 +338,7 @@ function EnrolledView({
           onPress={() => Linking.openURL(`${API}/approved`)}
           activeOpacity={0.85}
         >
-          <Text style={styles.primaryButtonText}>Resume on the web</Text>
+          <Text style={styles.primaryButtonText}>{t('approved.resumeOnWeb')}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -356,7 +352,7 @@ function EnrolledView({
           {cancelling ? (
             <ActivityIndicator color="#EF4444" />
           ) : (
-            <Text style={styles.cancelButtonText}>Cancel Speedi Approved</Text>
+            <Text style={styles.cancelButtonText}>{t('approved.cancelApproved')}</Text>
           )}
         </TouchableOpacity>
       ) : null}

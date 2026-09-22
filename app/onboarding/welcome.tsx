@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useT } from '../../lib/i18n';
 
 export default function OnboardingWelcome() {
   const router = useRouter();
+  const { t } = useT();
 
   const handleStart = () => {
     router.replace('/onboarding/wizard');
@@ -24,13 +26,11 @@ export default function OnboardingWelcome() {
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>Welcome to Speedi</Text>
-        <Text style={styles.subtext}>
-          Let&apos;s set up your profile — takes about 2 minutes
-        </Text>
+        <Text style={styles.title}>{t('onboarding.welcomeTitle')}</Text>
+        <Text style={styles.subtext}>{t('onboarding.welcomeSubtext')}</Text>
 
         <TouchableOpacity style={styles.button} onPress={handleStart} activeOpacity={0.8}>
-          <Text style={styles.buttonText}>Let&apos;s go</Text>
+          <Text style={styles.buttonText}>{t('onboarding.welcomeStart')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

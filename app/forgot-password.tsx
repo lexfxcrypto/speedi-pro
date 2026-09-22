@@ -12,11 +12,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useT } from '../lib/i18n';
 
 const API_BASE = 'https://www.speeditrades.com';
 
 export default function ForgotPassword() {
   const router = useRouter();
+  const { t } = useT();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,10 +38,10 @@ export default function ForgotPassword() {
       if (data?.success) {
         setSubmitted(true);
       } else {
-        setError('Could not send reset link. Please try again.');
+        setError(t('forgotPassword.sendFailed'));
       }
     } catch {
-      setError('Could not send reset link. Please try again.');
+      setError(t('forgotPassword.sendFailed'));
     } finally {
       setLoading(false);
     }
@@ -60,29 +62,24 @@ export default function ForgotPassword() {
 
           {submitted ? (
             <>
-              <Text style={styles.title}>Check your email</Text>
-              <Text style={styles.body}>
-                If that email matches an account, we&apos;ve sent a link to reset
-                your password. The link is valid for 1 hour.
-              </Text>
+              <Text style={styles.title}>{t('forgotPassword.checkEmailTitle')}</Text>
+              <Text style={styles.body}>{t('forgotPassword.checkEmailBody')}</Text>
 
               <TouchableOpacity
                 onPress={() => router.push('/login')}
                 style={styles.backLinkWrap}
               >
-                <Text style={styles.link}>← Back to sign in</Text>
+                <Text style={styles.link}>{t('forgotPassword.backToSignIn')}</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
-              <Text style={styles.title}>Forgot password?</Text>
-              <Text style={styles.subtitle}>
-                Enter your email and we&apos;ll send you a reset link.
-              </Text>
+              <Text style={styles.title}>{t('forgotPassword.title')}</Text>
+              <Text style={styles.subtitle}>{t('forgotPassword.subtitle')}</Text>
 
               <TextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder={t('forgotPassword.emailPlaceholder')}
                 placeholderTextColor="#6B7280"
                 value={email}
                 onChangeText={setEmail}
@@ -106,7 +103,7 @@ export default function ForgotPassword() {
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.buttonText}>Send reset link</Text>
+                  <Text style={styles.buttonText}>{t('forgotPassword.sendLink')}</Text>
                 )}
               </TouchableOpacity>
 
@@ -115,7 +112,7 @@ export default function ForgotPassword() {
                 disabled={loading}
                 style={styles.backLinkWrap}
               >
-                <Text style={styles.link}>← Back to sign in</Text>
+                <Text style={styles.link}>{t('forgotPassword.backToSignIn')}</Text>
               </TouchableOpacity>
             </>
           )}

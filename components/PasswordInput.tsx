@@ -9,12 +9,14 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { useT } from '../lib/i18n';
 
 type Props = Omit<TextInputProps, 'secureTextEntry' | 'style'> & {
   style?: StyleProp<ViewStyle>;
 };
 
 export function PasswordInput({ style, ...props }: Props) {
+  const { t } = useT();
   const [revealed, setRevealed] = useState(false);
 
   return (
@@ -28,7 +30,7 @@ export function PasswordInput({ style, ...props }: Props) {
         onPress={() => setRevealed((v) => !v)}
         style={styles.toggle}
         disabled={props.editable === false}
-        accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
+        accessibilityLabel={revealed ? t('modals.passwordHide') : t('modals.passwordShow')}
         accessibilityRole="button"
       >
         <Ionicons

@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
+import { categoryLabel, useT } from '../lib/i18n';
 import { TRADE_CATEGORIES } from '../lib/trades';
 
 const API = 'https://www.speeditrades.com';
@@ -35,6 +36,7 @@ type Props = {
 };
 
 export default function EditBusinessModal({ visible, initial, onClose, onSuccess }: Props) {
+  const { t } = useT();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
@@ -62,8 +64,8 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
     }
   }, [visible, initial]);
 
-  const toggleTrade = (t: string) => {
-    setTrades((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const toggleTrade = (trade: string) => {
+    setTrades((prev) => (prev.includes(trade) ? prev.filter((x) => x !== trade) : [...prev, trade]));
   };
 
   const handleSubmit = async () => {
@@ -88,11 +90,11 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to save');
+        throw new Error(data.error || t('modals.failedToSave'));
       }
       onSuccess();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save');
+      setError(e instanceof Error ? e.message : t('modals.failedToSave'));
     } finally {
       setSubmitting(false);
     }
@@ -108,44 +110,44 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
       <View style={styles.safe}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} disabled={submitting}>
-            <Text style={styles.headerCancel}>Cancel</Text>
+            <Text style={styles.headerCancel}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit profile</Text>
+          <Text style={styles.headerTitle}>{t('modals.editBusinessTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Trading name</Text>
+            <Text style={styles.fieldLabel}>{t('modals.editBusinessTradingName')}</Text>
             <TextInput
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Alex Plumbing & Heating"
+              placeholder={t('modals.editBusinessTradingNamePlaceholder')}
               placeholderTextColor="#6B7280"
             />
           </View>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>
-              Services you offer ({trades.length} selected)
+              {t('modals.editBusinessServices', { count: trades.length })}
             </Text>
             <View style={styles.servicesNote}>
               <Text style={styles.servicesNoteText}>
-                You will only get job and quote requests for the services you select here.
+                {t('modals.editBusinessServicesNote')}
               </Text>
             </View>
 
             {trades.length > 0 && (
               <View style={styles.selectedChipWrap}>
-                {trades.map((t) => (
+                {trades.map((trade) => (
                   <TouchableOpacity
-                    key={t}
+                    key={trade}
                     style={styles.selectedChip}
-                    onPress={() => toggleTrade(t)}
+                    onPress={() => toggleTrade(trade)}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.selectedChipText}>{t} ✕</Text>
+                    <Text style={styles.selectedChipText}>{categoryLabel(trade)} ✕</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -161,27 +163,27 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
                       onPress={() => setExpandedCat(isOpen ? null : cat)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.categoryHeaderText}>{cat}</Text>
+                      <Text style={styles.categoryHeaderText}>{categoryLabel(cat)}</Text>
                       <Text style={styles.categoryArrow}>{isOpen ? '▲' : '▼'}</Text>
                     </TouchableOpacity>
                     {isOpen && (
                       <View style={styles.tradeChipWrap}>
-                        {options.map((t) => {
-                          const selected = trades.includes(t);
+                        {options.map((trade) => {
+                          const selected = trades.includes(trade);
                           return (
                             <TouchableOpacity
-                              key={t}
+                              key={trade}
                               style={[
                                 styles.tradeChip,
                                 selected && { backgroundColor: THEME, borderColor: THEME },
                               ]}
-                              onPress={() => toggleTrade(t)}
+                              onPress={() => toggleTrade(trade)}
                               activeOpacity={0.85}
                             >
                               <Text
                                 style={[styles.tradeChipText, selected && { color: '#FFFFFF' }]}
                               >
-                                {t}
+                                {categoryLabel(trade)}
                               </Text>
                             </TouchableOpacity>
                           );
@@ -195,12 +197,12 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>About</Text>
+            <Text style={styles.fieldLabel}>{t('modals.editBusinessAbout')}</Text>
             <TextInput
               style={[styles.input, styles.multiline]}
               value={bio}
               onChangeText={setBio}
-              placeholder="Tell customers about your experience..."
+              placeholder={t('modals.editBusinessAboutPlaceholder')}
               placeholderTextColor="#6B7280"
               multiline
               numberOfLines={4}
@@ -209,23 +211,23 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
 
           <View style={styles.row}>
             <View style={[styles.fieldGroup, styles.rowItem]}>
-              <Text style={styles.fieldLabel}>Years experience</Text>
+              <Text style={styles.fieldLabel}>{t('modals.editBusinessYears')}</Text>
               <TextInput
                 style={styles.input}
                 value={yearsExperience}
                 onChangeText={setYearsExperience}
-                placeholder="e.g. 10"
+                placeholder={t('modals.editBusinessYearsPlaceholder')}
                 placeholderTextColor="#6B7280"
                 keyboardType="number-pad"
               />
             </View>
             <View style={[styles.fieldGroup, styles.rowItem]}>
-              <Text style={styles.fieldLabel}>Phone</Text>
+              <Text style={styles.fieldLabel}>{t('modals.editBusinessPhone')}</Text>
               <TextInput
                 style={styles.input}
                 value={phone}
                 onChangeText={setPhone}
-                placeholder="07xxx"
+                placeholder={t('modals.editBusinessPhonePlaceholder')}
                 placeholderTextColor="#6B7280"
                 keyboardType="phone-pad"
               />
@@ -238,12 +240,12 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
             has its own field and does not belong in the bio.
           */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>LINE ID</Text>
+            <Text style={styles.fieldLabel}>{t('modals.editBusinessLineId')}</Text>
             <TextInput
               style={styles.input}
               value={lineId}
               onChangeText={setLineId}
-              placeholder="e.g. termaza27 or @yourshop"
+              placeholder={t('modals.editBusinessLineIdPlaceholder')}
               placeholderTextColor="#6B7280"
               autoCapitalize="none"
               autoCorrect={false}
@@ -251,18 +253,18 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Coverage / business address</Text>
+            <Text style={styles.fieldLabel}>{t('modals.editBusinessAddress')}</Text>
             <TextInput
               style={styles.input}
               value={businessAddress}
               onChangeText={setBusinessAddress}
-              placeholder="e.g. SE15 — 10 mile radius"
+              placeholder={t('modals.editBusinessAddressPlaceholder')}
               placeholderTextColor="#6B7280"
             />
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Website</Text>
+            <Text style={styles.fieldLabel}>{t('modals.editBusinessWebsite')}</Text>
             <TextInput
               style={styles.input}
               value={website}
@@ -288,7 +290,7 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
             {submitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitButtonText}>Save profile</Text>
+              <Text style={styles.submitButtonText}>{t('modals.editBusinessSave')}</Text>
             )}
           </TouchableOpacity>
         </View>

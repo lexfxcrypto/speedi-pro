@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { fetchWithAuth } from '../lib/auth';
+import { useT } from '../lib/i18n';
 
 const API = 'https://www.speeditrades.com';
 const THEME = '#E64A19';
@@ -40,6 +41,7 @@ type Props = {
 };
 
 export default function AddSocialModal({ visible, onClose, onSuccess }: Props) {
+  const { t } = useT();
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('instagram');
   const [url, setUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +51,7 @@ export default function AddSocialModal({ visible, onClose, onSuccess }: Props) {
 
   const handleSubmit = async () => {
     if (!url.trim()) {
-      setError('Enter a URL or username');
+      setError(t('modals.addSocialUrlRequired'));
       return;
     }
     setSubmitting(true);
@@ -62,13 +64,13 @@ export default function AddSocialModal({ visible, onClose, onSuccess }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to save');
+        throw new Error(data.error || t('modals.failedToSave'));
       }
       setUrl('');
       setSelectedPlatform('instagram');
       onSuccess();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save');
+      setError(e instanceof Error ? e.message : t('modals.failedToSave'));
     } finally {
       setSubmitting(false);
     }
@@ -84,14 +86,14 @@ export default function AddSocialModal({ visible, onClose, onSuccess }: Props) {
       <View style={styles.safe}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} disabled={submitting}>
-            <Text style={styles.headerCancel}>Cancel</Text>
+            <Text style={styles.headerCancel}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add social link</Text>
+          <Text style={styles.headerTitle}>{t('modals.addSocialTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <Text style={styles.fieldLabel}>Platform</Text>
+          <Text style={styles.fieldLabel}>{t('modals.addSocialPlatform')}</Text>
           <View style={styles.pillWrap}>
             {PLATFORMS.map((p) => {
               const selected = selectedPlatform === p.key;
@@ -114,7 +116,7 @@ export default function AddSocialModal({ visible, onClose, onSuccess }: Props) {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>URL</Text>
+            <Text style={styles.fieldLabel}>{t('modals.addSocialUrl')}</Text>
             <TextInput
               style={styles.input}
               value={url}
@@ -140,7 +142,7 @@ export default function AddSocialModal({ visible, onClose, onSuccess }: Props) {
             {submitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitButtonText}>Save</Text>
+              <Text style={styles.submitButtonText}>{t('common.save')}</Text>
             )}
           </TouchableOpacity>
         </View>

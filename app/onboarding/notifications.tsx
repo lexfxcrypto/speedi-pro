@@ -9,28 +9,30 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useT, type TKey } from '../../lib/i18n';
 import { requestAndRegisterPush } from '../../lib/push';
 
-const BULLETS: Array<{ icon: keyof typeof Ionicons.glyphMap; title: string; body: string }> = [
+const BULLETS: Array<{ icon: keyof typeof Ionicons.glyphMap; title: TKey; body: TKey }> = [
   {
     icon: 'flash',
-    title: 'Live jobs near you',
-    body: "Customers in your area asking for help right now — be the first to respond.",
+    title: 'onboarding.notifLiveJobsTitle',
+    body: 'onboarding.notifLiveJobsBody',
   },
   {
     icon: 'checkmark-circle',
-    title: "When you've been accepted",
-    body: 'A ping the moment a customer accepts your quote so you can get straight to work.',
+    title: 'onboarding.notifAcceptedTitle',
+    body: 'onboarding.notifAcceptedBody',
   },
   {
     icon: 'calendar',
-    title: 'Approved deadline reminders',
-    body: 'Heads-up before any credential is about to expire — never lose your badge.',
+    title: 'onboarding.notifRemindersTitle',
+    body: 'onboarding.notifRemindersBody',
   },
 ];
 
 export default function NotificationsOptIn() {
   const router = useRouter();
+  const { t } = useT();
   const [submitting, setSubmitting] = useState(false);
 
   const handleAllow = async () => {
@@ -53,11 +55,8 @@ export default function NotificationsOptIn() {
           <Ionicons name="notifications" size={56} color="#E64A19" />
         </View>
 
-        <Text style={styles.title}>Don&apos;t miss a job</Text>
-        <Text style={styles.subtext}>
-          Speedi works because Pros respond fast. Push notifications let us
-          reach you the second a customer needs you.
-        </Text>
+        <Text style={styles.title}>{t('onboarding.notifTitle')}</Text>
+        <Text style={styles.subtext}>{t('onboarding.notifSubtext')}</Text>
 
         <View style={styles.bullets}>
           {BULLETS.map((b) => (
@@ -66,8 +65,8 @@ export default function NotificationsOptIn() {
                 <Ionicons name={b.icon} size={20} color="#E64A19" />
               </View>
               <View style={styles.bulletText}>
-                <Text style={styles.bulletTitle}>{b.title}</Text>
-                <Text style={styles.bulletBody}>{b.body}</Text>
+                <Text style={styles.bulletTitle}>{t(b.title)}</Text>
+                <Text style={styles.bulletBody}>{t(b.body)}</Text>
               </View>
             </View>
           ))}
@@ -83,7 +82,7 @@ export default function NotificationsOptIn() {
             {submitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.primaryButtonText}>Turn on notifications</Text>
+              <Text style={styles.primaryButtonText}>{t('onboarding.notifTurnOn')}</Text>
             )}
           </TouchableOpacity>
 
@@ -93,7 +92,7 @@ export default function NotificationsOptIn() {
             disabled={submitting}
             activeOpacity={0.7}
           >
-            <Text style={styles.secondaryButtonText}>Maybe later</Text>
+            <Text style={styles.secondaryButtonText}>{t('onboarding.notifLater')}</Text>
           </TouchableOpacity>
         </View>
       </View>

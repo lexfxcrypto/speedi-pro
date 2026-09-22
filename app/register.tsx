@@ -16,9 +16,11 @@ import {
 import { PasswordInput } from '../components/PasswordInput';
 import { PhoneInputWithCountry } from '../components/PhoneInputWithCountry';
 import { register } from '../lib/auth';
+import { useT } from '../lib/i18n';
 
 export default function Register() {
   const router = useRouter();
+  const { t } = useT();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -40,7 +42,7 @@ export default function Register() {
   const handleCreate = async () => {
     setError('');
     if (!passwordsMatch) {
-      setError("Passwords don't match");
+      setError(t('register.passwordsDontMatch'));
       return;
     }
     setLoading(true);
@@ -55,10 +57,10 @@ export default function Register() {
       if (result.success) {
         router.replace('/onboarding/welcome');
       } else {
-        setError(result.error ?? 'Failed to create account');
+        setError(result.error ?? t('register.createFailed'));
       }
     } catch {
-      setError('Failed to create account');
+      setError(t('register.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -74,11 +76,11 @@ export default function Register() {
         }}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="Back"
+        accessibilityLabel={t('common.back')}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
         <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-        <Text style={styles.backText}>Back</Text>
+        <Text style={styles.backText}>{t('common.back')}</Text>
       </TouchableOpacity>
       <KeyboardAvoidingView
         style={styles.flex}
@@ -91,11 +93,11 @@ export default function Register() {
             resizeMode="contain"
           />
 
-          <Text style={styles.title}>Create your Speedi Pro account</Text>
+          <Text style={styles.title}>{t('register.title')}</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Name"
+            placeholder={t('register.namePlaceholder')}
             placeholderTextColor="#6B7280"
             value={name}
             onChangeText={setName}
@@ -105,7 +107,7 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder={t('register.emailPlaceholder')}
             placeholderTextColor="#6B7280"
             value={email}
             onChangeText={setEmail}
@@ -122,7 +124,7 @@ export default function Register() {
           />
 
           <PasswordInput
-            placeholder="Password"
+            placeholder={t('register.passwordPlaceholder')}
             placeholderTextColor="#6B7280"
             value={password}
             onChangeText={setPassword}
@@ -130,7 +132,7 @@ export default function Register() {
           />
 
           <PasswordInput
-            placeholder="Confirm password"
+            placeholder={t('register.confirmPasswordPlaceholder')}
             placeholderTextColor="#6B7280"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -138,7 +140,7 @@ export default function Register() {
           />
 
           {confirmPassword.length > 0 && !passwordsMatch && (
-            <Text style={styles.error}>Passwords don&apos;t match</Text>
+            <Text style={styles.error}>{t('register.passwordsDontMatch')}</Text>
           )}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -152,14 +154,14 @@ export default function Register() {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Create account</Text>
+              <Text style={styles.buttonText}>{t('register.createAccount')}</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>{t('register.haveAccount')}</Text>
             <TouchableOpacity onPress={() => router.push('/login')} disabled={loading}>
-              <Text style={styles.footerLink}>Sign in</Text>
+              <Text style={styles.footerLink}>{t('register.signIn')}</Text>
             </TouchableOpacity>
           </View>
         </View>

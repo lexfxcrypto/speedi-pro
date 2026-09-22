@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchWithAuth } from '../lib/auth';
+import { useT } from '../lib/i18n';
 
 /**
  * Absolute, because fetchWithAuth passes the URL straight to fetch with
@@ -58,6 +59,7 @@ type Stats = {
 };
 
 export function WaitingListPanel({ accent }: { accent: string }) {
+  const { t } = useT();
   const [stats, setStats] = useState<Stats | null>(null);
   const [composing, setComposing] = useState(false);
   const [message, setMessage] = useState('');
@@ -101,22 +103,24 @@ export function WaitingListPanel({ accent }: { accent: string }) {
          * broke.
          */
         Alert.alert(
-          res.status === 429 ? 'Not just yet' : 'Could not send',
-          body?.message ?? 'Something went wrong. Try again shortly.',
+          res.status === 429 ? t('modals.waitingNotYet') : t('modals.waitingCouldNotSend'),
+          body?.message ?? t('modals.waitingSendFailed'),
         );
         return;
       }
       setComposing(false);
       setMessage('');
       Alert.alert(
-        'Sent',
+        t('modals.waitingSent'),
         body.sent === 0
-          ? 'Nobody has asked to be told every time yet, so this went to no one. It sends automatically once people opt in.'
-          : `Told ${body.sent} ${body.sent === 1 ? 'person' : 'people'}.`,
+          ? t('modals.waitingSentNobody')
+          : t(body.sent === 1 ? 'modals.waitingSentOne' : 'modals.waitingSentOther', {
+              count: body.sent,
+            }),
       );
       void load();
     } catch {
-      Alert.alert('Could not send', 'Check your connection and try again.');
+      Alert.alert(t('modals.waitingCouldNotSend'), t('modals.waitingCheckConnection'));
     } finally {
       setSending(false);
     }
@@ -141,16 +145,12 @@ export function WaitingListPanel({ accent }: { accent: string }) {
   return (
     <View style={styles.card}>
       {empty ? (
-        <Text style={styles.label}>
-          When your clients follow you here, they get a notification the
-          moment you go green — or when you post a cancellation.
-        </Text>
+        <Text style={styles.label}>{t('modals.waitingEmpty')}</Text>
       ) : (
         <View style={styles.headRow}>
           <Text style={[styles.count, { color: accent }]}>{stats.waiting}</Text>
           <Text style={styles.label}>
-            {stats.waiting === 1 ? 'customer wants' : 'customers want'} to know
-            when you&apos;re free
+            {t(stats.waiting === 1 ? 'modals.waitingLabelOne' : 'modals.waitingLabelOther')}
           </Text>
         </View>
       )}
@@ -179,8 +179,10 @@ export function WaitingListPanel({ accent }: { accent: string }) {
         <>
           {stats.standing < stats.waiting ? (
             <Text style={styles.footnote}>
-              All {stats.waiting} get told when you go green.{' '}
-              {stats.standing} of them also asked to hear from you directly.
+              {t('modals.waitingSomeStanding', {
+                waiting: stats.waiting,
+                standing: stats.standing,
+              })}
             </Text>
           ) : null}
           <Pressable
@@ -189,7 +191,7 @@ export function WaitingListPanel({ accent }: { accent: string }) {
           >
             <Ionicons name="megaphone-outline" size={16} color={accent} />
             <Text style={[styles.buttonLabel, { color: accent }]}>
-              Message the {stats.standing} following you
+              {t('modals.waitingMessageButton', { count: stats.standing })}
             </Text>
           </Pressable>
         </>
@@ -199,11 +201,7 @@ export function WaitingListPanel({ accent }: { accent: string }) {
          * has no button and a provider is left wondering where it went.
          */
         stats.waiting > 0 ? (
-          <Text style={styles.footnote}>
-            They&apos;ll all be told when you go green. Nobody has asked to
-            hear from you directly yet — share your link and tell them to
-            tick &ldquo;every time&rdquo;.
-          </Text>
+          <Text style={styles.footnote}>{t('modals.waitingNoStanding')}</Text>
         ) : null
       )}
 
@@ -220,16 +218,14 @@ export function WaitingListPanel({ accent }: { accent: string }) {
           style={styles.backdrop}
         >
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Message your list</Text>
+            <Text style={styles.sheetTitle}>{t('modals.waitingSheetTitle')}</Text>
             <Text style={styles.sheetHint}>
-              Goes to the {stats.standing} who asked to hear from you every
-              time. Your pin stays as it is — this does not make you green.
-              Good for a slot opening up, and for saying when it has gone.
+              {t('modals.waitingSheetHint', { count: stats.standing })}
             </Text>
             <TextInput
               value={message}
               onChangeText={setMessage}
-              placeholder="3pm Friday just come free — first to message gets it"
+              placeholder={t('modals.waitingPlaceholder')}
               placeholderTextColor="rgba(255,255,255,0.35)"
               multiline
               maxLength={120}
@@ -242,7 +238,7 @@ export function WaitingListPanel({ accent }: { accent: string }) {
                 onPress={() => setComposing(false)}
                 style={styles.secondary}
               >
-                <Text style={styles.secondaryLabel}>Cancel</Text>
+                <Text style={styles.secondaryLabel}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={() => void send()}
@@ -256,7 +252,7 @@ export function WaitingListPanel({ accent }: { accent: string }) {
                 {sending ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.primaryLabel}>Send</Text>
+                  <Text style={styles.primaryLabel}>{t('modals.waitingSend')}</Text>
                 )}
               </Pressable>
             </View>
@@ -264,7 +260,7 @@ export function WaitingListPanel({ accent }: { accent: string }) {
             {/* Said up front, because finding out by being refused is
                 worse. Four, because one cancellation is several
                 messages — free, then taken. */}
-            <Text style={styles.limit}>You can send up to 4 messages a day.</Text>
+            <Text style={styles.limit}>{t('modals.waitingLimit')}</Text>
           </View>
         </KeyboardAvoidingView>
       </Modal>

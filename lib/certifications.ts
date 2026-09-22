@@ -1,6 +1,9 @@
 // ⚠️ SYNC-WITH-WEB — If you edit this file, also update
 // speedi/src/lib/certifications.ts in the web repo.
 // Source of truth is web; this is a duplicate for offline availability in the native app.
+// (Except the display-label block at the bottom, which is native only.)
+
+import { t, type TKey } from "./i18n";
 
 /**
  * Per-trade credential suggestions — surfaced to the tradesperson when
@@ -100,4 +103,44 @@ export function getCertSuggestionsForTrade(input: string | null | undefined): Ce
   if (!input) return GENERIC_CERT_SUGGESTIONS;
   const key = CATEGORY_TO_CERT_KEY[input] ?? input;
   return TRADE_CERT_SUGGESTIONS[key] ?? GENERIC_CERT_SUGGESTIONS;
+}
+
+// ── Display labels (native only, not in the web copy) ──────────────────
+// `label` and `description` above are data: the label prefills the
+// credential title that is POSTed and stored, and is compared to pick the
+// selected pill. So they stay English, and the UI shows these instead.
+// Anything unmapped (proper nouns like NICEIC, or a web-side addition not
+// yet mirrored here) falls back to the English as it is.
+const LABEL_KEYS: Record<string, TKey> = {
+  "CIPHE membership": "certifications.ciphe",
+  "Public Liability Insurance": "certifications.publicLiability",
+  "Employers Liability Insurance": "certifications.employersLiability",
+  "Part P (Electrical Safety)": "certifications.partP",
+  "CSCS Card": "certifications.cscsCard",
+  "FMB Membership (Federation of Master Builders)": "certifications.fmb",
+  "Working at Height training": "certifications.workingAtHeight",
+  "Painting & Decorating Association membership": "certifications.pda",
+  "City & Guilds Painting & Decorating": "certifications.cityGuildsDecorating",
+  "MOT Tester Authorisation": "certifications.motTester",
+  "IMI Membership (Institute of the Motor Industry)": "certifications.imi",
+  "City & Guilds Motor Vehicle qualification": "certifications.cityGuildsMotor",
+  "Checkatrade verification": "certifications.checkatrade",
+  "Other qualification or insurance": "certifications.other",
+};
+
+const DESCRIPTION_KEYS: Record<string, TKey> = {
+  "Required for all gas work": "certifications.gasSafeRequired",
+  "DVSA accreditation": "certifications.dvsaAccreditation",
+};
+
+/** The suggestion's label in the app language, for display only. */
+export function certificationLabel(label: string): string {
+  const key = LABEL_KEYS[label];
+  return key ? t(key) : label;
+}
+
+/** The suggestion's description in the app language, for display only. */
+export function certificationDescription(description: string): string {
+  const key = DESCRIPTION_KEYS[description];
+  return key ? t(key) : description;
 }
