@@ -24,6 +24,7 @@ type ProfileFields = {
   yearsExperience: number | null;
   businessAddress: string | null;
   website: string | null;
+  lineId?: string | null;
 };
 
 type Props = {
@@ -40,6 +41,7 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
   const [yearsExperience, setYearsExperience] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
   const [website, setWebsite] = useState('');
+  const [lineId, setLineId] = useState('');
   const [trades, setTrades] = useState<string[]>([]);
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -53,6 +55,7 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
       setYearsExperience(initial.yearsExperience != null ? String(initial.yearsExperience) : '');
       setBusinessAddress(initial.businessAddress ?? '');
       setWebsite(initial.website ?? '');
+      setLineId(initial.lineId ?? '');
       setTrades(initial.trades?.length ? initial.trades : initial.trade ? [initial.trade] : []);
       setExpandedCat(null);
       setError('');
@@ -75,6 +78,7 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
         yearsExperience: Number.isFinite(yearsNum) ? yearsNum : null,
         businessAddress: businessAddress.trim() || null,
         website: website.trim() || null,
+        lineId: lineId.trim() || null,
         trades,
         trade: trades[0] ?? null,
       };
@@ -226,6 +230,24 @@ export default function EditBusinessModal({ visible, initial, onClose, onSuccess
                 keyboardType="phone-pad"
               />
             </View>
+          </View>
+
+          {/*
+            LINE is how Thailand messages a business. Like the phone, it
+            goes to a customer only once you accept them — which is why it
+            has its own field and does not belong in the bio.
+          */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>LINE ID</Text>
+            <TextInput
+              style={styles.input}
+              value={lineId}
+              onChangeText={setLineId}
+              placeholder="e.g. termaza27 or @yourshop"
+              placeholderTextColor="#6B7280"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
           </View>
 
           <View style={styles.fieldGroup}>
