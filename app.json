@@ -3,7 +3,7 @@
     "name": "speedi-pro",
     "slug": "speedi-pro",
     "scheme": "speedipro",
-    "version": "1.0.24",
+    "version": "1.0.25",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
       "deploymentTarget": "15.0",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Speedi uses your location to show nearby tradespeople and broadcast your availability when you're toggled live.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "While you're toggled live, Speedi keeps your pin updated as you move between jobs \u2014 even when the app is in the background or your phone is locked. Tracking stops immediately when you toggle offline.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "While you're toggled live, Speedi keeps your pin updated as you move between jobs — even when the app is in the background or your phone is locked. Tracking stops immediately when you toggle offline.",
         "NSCameraUsageDescription": "Speedi uses the camera to take profile photos and document your verified credentials.",
         "NSPhotoLibraryUsageDescription": "Speedi accesses your photos to upload your profile picture and credential documents.",
         "ITSAppUsesNonExemptEncryption": false,
@@ -52,6 +52,12 @@
         "projectId": "2ecc8854-c724-469e-afa3-711f4f103122"
       }
     },
-    "owner": "speeditrades"
+    "owner": "speeditrades",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2ecc8854-c724-469e-afa3-711f4f103122"
+    }
   }
 }
