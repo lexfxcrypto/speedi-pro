@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { BrandWatermark } from '../components/BrandWatermark';
 import { PasswordInput } from '../components/PasswordInput';
 import { SignupHero } from '../components/SignupHero';
 import { login } from '../lib/auth';
@@ -44,6 +45,7 @@ export default function Login() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <BrandWatermark />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -24,10 +24,6 @@ export function SignupHero() {
 
   return (
     <View style={styles.wrap}>
-      {/* The banner's soft circles, behind everything and untouchable. */}
-      <View pointerEvents="none" style={[styles.circle, { width: width * 0.6, height: width * 0.6, borderRadius: width, top: -width * 0.35, right: -width * 0.35 }]} />
-      <View pointerEvents="none" style={[styles.circle, { width: width * 0.5, height: width * 0.5, borderRadius: width, bottom: -width * 0.25, left: -width * 0.4 }]} />
-
       <View style={styles.lockup}>
         <Logo variant="white" height={logoHeight} />
         <Text style={[styles.pro, { fontSize: logoHeight * 0.36 }]}>pro</Text>
@@ -57,7 +53,6 @@ export function SignupHero() {
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', marginBottom: 28 },
-  circle: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.05)' },
   lockup: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
   pro: {
     color: '#FFFFFF',

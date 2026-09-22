@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { BrandWatermark } from '../components/BrandWatermark';
 import { PasswordInput } from '../components/PasswordInput';
 import { SignupHero } from '../components/SignupHero';
 import { PhoneInputWithCountry } from '../components/PhoneInputWithCountry';
@@ -83,6 +84,7 @@ export default function Register() {
         <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
         <Text style={styles.backText}>{t('common.back')}</Text>
       </TouchableOpacity>
+      <BrandWatermark />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
