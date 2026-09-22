@@ -40,5 +40,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-evenly',
   },
   // Dim: a watermark on black at full strength reads as three balloons.
-  light: { opacity: 0.16 },
+  // 0.16 was still louder than the form; 0.09 reads as a tint.
+  light: { opacity: 0.09 },
 });
