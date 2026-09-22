@@ -3,10 +3,10 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { PasswordInput } from '../components/PasswordInput';
+import { SignupHero } from '../components/SignupHero';
 import { PhoneInputWithCountry } from '../components/PhoneInputWithCountry';
 import { register } from '../lib/auth';
 import { useT } from '../lib/i18n';
@@ -86,14 +87,9 @@ export default function Register() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.container}>
-          <Image
-            source={require('../assets/images/speedi-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-
-          <Text style={styles.title}>{t('register.title')}</Text>
+        {/* Scrolls: the hero made the form taller than an SE with the keyboard up. */}
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <SignupHero />
 
           <TextInput
             style={styles.input}
@@ -164,7 +160,7 @@ export default function Register() {
               <Text style={styles.footerLink}>{t('register.signIn')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -192,22 +188,9 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     padding: 24,
     justifyContent: 'center',
-  },
-  logo: {
-    alignSelf: 'center',
-    height: 240,
-    width: 300,
-    marginBottom: 16,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 28,
   },
   input: {
     backgroundColor: '#111111',

@@ -1,6 +1,10 @@
 /** English strings for this area. Keys are the contract: th/register.ts must have every one. */
 const en = {
   title: 'Create your Speedi Pro account',
+  heroQuestion: 'Offer a trade or service?',
+  heroLead: 'Show your customers your',
+  heroHighlight: 'realtime',
+  heroTail: 'availability.',
   namePlaceholder: 'Name',
   emailPlaceholder: 'Email',
   passwordPlaceholder: 'Password',

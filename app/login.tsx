@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { PasswordInput } from '../components/PasswordInput';
+import { SignupHero } from '../components/SignupHero';
 import { login } from '../lib/auth';
 import { useT } from '../lib/i18n';
 
@@ -47,12 +48,13 @@ export default function Login() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.container}>
-          <Image
-            source={require('../assets/images/speedi-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+        {/*
+          The first screen a business sees, so it carries the pitch as well
+          as the form. Scrolls: the hero makes it taller than an SE with
+          the keyboard up.
+        */}
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <SignupHero />
 
           <Text style={styles.title}>{t('login.title')}</Text>
 
@@ -105,7 +107,7 @@ export default function Login() {
               <Text style={styles.footerLink}>{t('login.createOne')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -120,22 +122,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     padding: 24,
     justifyContent: 'center',
   },
-  logo: {
-    alignSelf: 'center',
-    height: 240,
-    width: 300,
-    marginBottom: 16,
-  },
+  // Second to the hero now, so a label rather than a headline.
   title: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: 'bold',
+    color: '#A3A3A3',
+    fontSize: 15,
+    fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 16,
   },
   input: {
     backgroundColor: '#111111',
