@@ -43,8 +43,17 @@ const COUNTRIES: Country[] = [
   { iso: 'AU', name: 'Australia', dial: '61', flag: '🇦🇺' },
   { iso: 'NZ', name: 'New Zealand', dial: '64', flag: '🇳🇿' },
   { iso: 'AE', name: 'United Arab Emirates', dial: '971', flag: '🇦🇪' },
+  { iso: 'TH', name: 'Thailand', dial: '66', flag: '🇹🇭' },
   { iso: 'ZA', name: 'South Africa', dial: '27', flag: '🇿🇦' },
 ];
+
+function guessIso(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Bangkok' ? 'TH' : 'GB';
+  } catch {
+    return 'GB';
+  }
+}
 
 function splitE164(value: string, fallbackIso: string): { iso: string; national: string } {
   if (!value || !value.startsWith('+')) {
@@ -72,12 +81,16 @@ interface Props {
 export function PhoneInputWithCountry({
   value,
   onChange,
-  defaultIso = 'GB',
+  defaultIso,
   editable = true,
   placeholder = 'Phone number',
   placeholderTextColor = '#6B7280',
 }: Props) {
-  const split = useMemo(() => splitE164(value, defaultIso), [value, defaultIso]);
+  // Omitted: the UK, or Thailand on a phone set to Bangkok time — a Thai
+  // number typed with the UK selected is saved as +4481…, which nobody
+  // can ring.
+  const fallbackIso = defaultIso ?? guessIso();
+  const split = useMemo(() => splitE164(value, fallbackIso), [value, fallbackIso]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const country = COUNTRIES.find((c) => c.iso === split.iso) ?? COUNTRIES[0];
 

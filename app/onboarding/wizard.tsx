@@ -1057,7 +1057,7 @@ export default function Wizard() {
                 <Text style={styles.fieldLabel}>Postcode or area</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. PR1, or Dubai Marina"
+                  placeholder="e.g. PR1, or Pattaya"
                   placeholderTextColor="#6B7280"
                   value={postcode}
                   onChangeText={setPostcode}
