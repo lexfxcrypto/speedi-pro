@@ -14,6 +14,9 @@ import { Logo } from './Logo';
  */
 const GREEN = '#22A447';
 
+/** The horizontal lights, as the customer app's home hero shows them. */
+const LIGHTS = ['#62CF4F', '#EDA23F', '#D65046'] as const;
+
 export function SignupHero() {
   const { t } = useT();
   const { width } = useWindowDimensions();
@@ -41,6 +44,12 @@ export function SignupHero() {
           <View style={styles.highlightUnderline} />
         </View>
         {t('register.heroTail') ? <Text style={styles.pitchText}> {t('register.heroTail')}</Text> : null}
+      </View>
+
+      <View style={styles.lights}>
+        {LIGHTS.map((c, i) => (
+          <View key={c} style={[styles.light, { backgroundColor: c, marginLeft: i ? -7 : 0 }]} />
+        ))}
       </View>
     </View>
   );
@@ -81,6 +90,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
   },
   highlightText: { color: '#FFFFFF', fontWeight: '800' },
+  lights: { flexDirection: 'row', marginTop: 16 },
+  light: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
   highlightUnderline: {
     height: 3,
     borderRadius: 2,
