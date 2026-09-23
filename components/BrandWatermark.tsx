@@ -14,7 +14,8 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
  * Behind everything and untouchable: it is a background, and it must
  * never swallow a tap meant for the email field.
  */
-const LIGHTS = ['#62CF4F', '#EDA23F', '#D65046'] as const;
+// Red at the top, green at the bottom — a traffic light, not a list.
+const LIGHTS = ['#D65046', '#EDA23F', '#62CF4F'] as const;
 
 export function BrandWatermark() {
   const { width } = useWindowDimensions();

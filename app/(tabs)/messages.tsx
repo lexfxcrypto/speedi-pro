@@ -449,7 +449,9 @@ export default function Messages() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    // Transparent: the app's dark background and its watermark live in
+    // the tabs layout now, one layer behind every screen.
+    backgroundColor: 'transparent',
   },
   container: {
     padding: 20,

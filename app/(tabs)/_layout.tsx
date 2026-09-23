@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, View } from 'react-native';
+import { BrandWatermark } from '../../components/BrandWatermark';
 import { fetchWithAuth } from '../../lib/auth';
 import { useT } from '../../lib/i18n';
 
@@ -46,76 +47,86 @@ export default function TabsLayout() {
   }, []);
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#E64A19',
-        tabBarInactiveTintColor: '#3A3A3A',
-        tabBarStyle: {
-          backgroundColor: '#111111',
-          borderTopColor: 'rgba(255,255,255,0.06)',
-          borderTopWidth: 1,
-          height: 83,
-          paddingTop: 8,
-          paddingBottom: 24,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-        },
-        tabBarBadgeStyle: {
-          backgroundColor: '#EF4444',
-          color: '#FFFFFF',
-          fontSize: 10,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t('tabs.home'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+    /*
+      One watermark for the whole app, behind every tab. The screens'
+      own backgrounds are transparent so it shows through; the tab bar
+      keeps its solid one, as a bar that dissolves reads as a bug.
+    */
+    <View style={{ flex: 1, backgroundColor: '#0A0A0A' }}>
+      <BrandWatermark />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          // Or the navigator paints its own background over the watermark.
+          sceneStyle: { backgroundColor: 'transparent' },
+          tabBarActiveTintColor: '#E64A19',
+          tabBarInactiveTintColor: '#3A3A3A',
+          tabBarStyle: {
+            backgroundColor: '#111111',
+            borderTopColor: 'rgba(255,255,255,0.06)',
+            borderTopWidth: 1,
+            height: 83,
+            paddingTop: 8,
+            paddingBottom: 24,
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+          },
+          tabBarBadgeStyle: {
+            backgroundColor: '#EF4444',
+            color: '#FFFFFF',
+            fontSize: 10,
+          },
         }}
-      />
+      >
       <Tabs.Screen
-        name="waiting"
-        options={{
-          title: t('tabs.waiting'),
-          tabBarBadge: waitingCount > 0 ? waitingCount : undefined,
-          tabBarIcon: ({ color, size }) => <Ionicons name="flash" color={color} size={size} />,
-        }}
-      />
+          name="index"
+          options={{
+            title: t('tabs.home'),
+            tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+          }}
+        />
+      <Tabs.Screen
+          name="waiting"
+          options={{
+            title: t('tabs.waiting'),
+            tabBarBadge: waitingCount > 0 ? waitingCount : undefined,
+            tabBarIcon: ({ color, size }) => <Ionicons name="flash" color={color} size={size} />,
+          }}
+        />
       <Tabs.Screen name="calendar" options={{ href: null }} />
       <Tabs.Screen
-        name="messages"
-        options={{
-          title: t('tabs.messages'),
-          tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble" color={color} size={size} />
-          ),
-        }}
-      />
+          name="messages"
+          options={{
+            title: t('tabs.messages'),
+            tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="chatbubble" color={color} size={size} />
+            ),
+          }}
+        />
       <Tabs.Screen
-        name="profile"
-        options={{
-          title: t('tabs.profile'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
-        }}
-      />
+          name="profile"
+          options={{
+            title: t('tabs.profile'),
+            tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+          }}
+        />
       <Tabs.Screen
-        name="reviews"
-        options={{
-          title: t('tabs.reviews'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="star" color={color} size={size} />,
-        }}
-      />
+          name="reviews"
+          options={{
+            title: t('tabs.reviews'),
+            tabBarIcon: ({ color, size }) => <Ionicons name="star" color={color} size={size} />,
+          }}
+        />
       <Tabs.Screen
-        name="rewards"
-        options={{
-          title: t('tabs.rewards'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="gift" color={color} size={size} />,
-        }}
-      />
-    </Tabs>
+          name="rewards"
+          options={{
+            title: t('tabs.rewards'),
+            tabBarIcon: ({ color, size }) => <Ionicons name="gift" color={color} size={size} />,
+          }}
+        />
+      </Tabs>
+    </View>
   );
 }

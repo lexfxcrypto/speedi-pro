@@ -887,7 +887,9 @@ const styles = StyleSheet.create({
   radiusCloseText: { color: '#9CA3AF', fontSize: 15, fontWeight: '700' },
   safe: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    // Transparent: the app's dark background and its watermark live in
+    // the tabs layout now, one layer behind every screen.
+    backgroundColor: 'transparent',
   },
   centered: {
     alignItems: 'center',
