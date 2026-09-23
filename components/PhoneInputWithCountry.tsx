@@ -91,8 +91,21 @@ export function PhoneInputWithCountry({
   // number typed with the UK selected is saved as +4481…, which nobody
   // can ring.
   const { t } = useT();
+  /**
+   * The country picked by hand, which outlives an empty number.
+   *
+   * Everything else here is derived from `value`, and an empty number
+   * carries no country — so picking Thailand before typing anything
+   * emitted "" and the field snapped straight back to +44 (22 Sep 2026).
+   * A typed number still wins: a pasted +66 shows Thailand whatever was
+   * picked before.
+   */
+  const [pickedIso, setPickedIso] = useState<string | null>(null);
   const fallbackIso = defaultIso ?? guessIso();
-  const split = useMemo(() => splitE164(value, fallbackIso), [value, fallbackIso]);
+  const split = useMemo(
+    () => splitE164(value, pickedIso ?? fallbackIso),
+    [value, pickedIso, fallbackIso],
+  );
   const [pickerOpen, setPickerOpen] = useState(false);
   const country = COUNTRIES.find((c) => c.iso === split.iso) ?? COUNTRIES[0];
 
@@ -147,6 +160,7 @@ export function PhoneInputWithCountry({
                   item.iso === split.iso && styles.countryRowActive,
                 ]}
                 onPress={() => {
+                  setPickedIso(item.iso);
                   emit(item.iso, split.national);
                   setPickerOpen(false);
                 }}
