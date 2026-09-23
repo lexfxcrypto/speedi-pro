@@ -9,6 +9,7 @@ import { fetchWithAuth } from '../lib/auth';
 // iOS can wake the app when the pro moves while in the background.
 import '../lib/location';
 import { ensurePushTokenRegistered } from '../lib/push';
+import { useAutoUpdate } from '../lib/useAutoUpdate';
 
 const API_BASE = 'https://www.speeditrades.com';
 
@@ -23,6 +24,9 @@ Notifications.setNotificationHandler({
 
 export default function RootLayout() {
   const router = useRouter();
+
+  // Published fixes land on this launch, not the one after — see the hook.
+  useAutoUpdate();
 
   useEffect(() => {
     (async () => {
